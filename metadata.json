@@ -1,0 +1,6 @@
+{
+  "name": "SIMAQ",
+  "description": "Sistem Informasi dan Manajemen Aliyah Al-Qamar - Platform modern untuk pengelolaan data master, akademik, absensi, penugasan, dan jurnal mengajar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
