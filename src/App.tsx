@@ -55,6 +55,20 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
   const [activeError, setActiveError] = useState<string | null>(null);
 
+  // Logo Customization State
+  const [logoEmoji, setLogoEmoji] = useState<string>(() => localStorage.getItem("simaq_app_logo_emoji") || "🌙");
+  const [logoName, setLogoName] = useState<string>(() => localStorage.getItem("simaq_app_logo_name") || "SIMAQ");
+  const [logoSub, setLogoSub] = useState<string>(() => localStorage.getItem("simaq_app_logo_sub") || "Aliyah Al-Qamar");
+
+  const handleLogoUpdate = (emoji: string, name: string, sub: string) => {
+    localStorage.setItem("simaq_app_logo_emoji", emoji);
+    localStorage.setItem("simaq_app_logo_name", name);
+    localStorage.setItem("simaq_app_logo_sub", sub);
+    setLogoEmoji(emoji);
+    setLogoName(name);
+    setLogoSub(sub);
+  };
+
   // Subscribe to global database error listeners
   useEffect(() => {
     const unsubscribe = db.addErrorListener((msg) => {
@@ -109,9 +123,22 @@ export default function App() {
     db.updateCurrentUser(updatedProfile);
   };
 
+  const bgStyle = {
+    backgroundImage: darkMode 
+      ? "linear-gradient(rgba(11, 22, 18, 0.94), rgba(11, 22, 18, 0.94)), url('/src/assets/images/clean_green_abstract_bg_1783343724360.jpg')"
+      : "linear-gradient(rgba(225, 238, 230, 0.82), rgba(225, 238, 230, 0.82)), url('/src/assets/images/clean_green_abstract_bg_1783343724360.jpg')",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    backgroundAttachment: "fixed"
+  };
+
   if (!sessionUser) {
     return (
-      <div className={`min-h-screen transition-colors duration-200 ${darkMode ? "dark bg-[#11121d]" : "bg-[#f5f5f9]"}`}>
+      <div 
+        style={bgStyle}
+        className={`min-h-screen transition-colors duration-200 ${darkMode ? "dark" : ""}`}
+      >
         <Login 
           onLoginSuccess={(user) => {
             setSessionUser(user);
@@ -120,6 +147,9 @@ export default function App() {
           }} 
           darkMode={darkMode}
           toggleDarkMode={() => setDarkMode(prev => !prev)}
+          logoEmoji={logoEmoji}
+          logoName={logoName}
+          logoSub={logoSub}
         />
       </div>
     );
@@ -147,7 +177,7 @@ export default function App() {
     if (sessionUser.role === "guru") {
       switch (currentView) {
         case "dashboard":
-          return <DashboardGuru isDarkMode={darkMode} />;
+          return <DashboardGuru isDarkMode={darkMode} onViewChange={(view) => setCurrentView(view)} />;
         case "subjects":
           return <SubjectsModule />;
         case "classes":
@@ -219,9 +249,12 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen flex text-slate-800 dark:text-slate-100 transition-colors duration-200 ${
-      darkMode ? "dark bg-[#11121d]" : "bg-[#f5f5f9]"
-    }`}>
+    <div 
+      style={bgStyle}
+      className={`min-h-screen flex text-slate-800 dark:text-slate-100 transition-colors duration-200 ${
+        darkMode ? "dark" : ""
+      }`}
+    >
       
       {/* 1. SIDEBAR */}
       <Sidebar
@@ -236,6 +269,10 @@ export default function App() {
         }}
         onLogout={handleLogout}
         isDarkMode={darkMode}
+        logoEmoji={logoEmoji}
+        logoName={logoName}
+        logoSub={logoSub}
+        onLogoUpdate={handleLogoUpdate}
       />
 
       {/* 2. MAIN SHELL SECTION (NAVBAR + CONTENT AREA + FOOTER) */}
@@ -249,10 +286,12 @@ export default function App() {
           onShowSupabaseHelp={() => setSupabaseHelpOpen(true)}
           syncStatus={syncStatus}
           onTriggerSync={handleTriggerSync}
+          onViewChange={(view) => setCurrentView(view)}
+          logoName={logoName}
         />
 
         {/* MAIN VIEWS INJECTOR PORT */}
-        <main className="flex-1 p-4 md:p-6 space-y-6 max-w-[1600px] w-full mx-auto">
+        <main className="flex-1 p-4 md:p-6 space-y-6 w-full">
           {renderMainViewContent()}
         </main>
 

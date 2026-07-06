@@ -71,7 +71,20 @@ export const ProfileSiswa: React.FC = () => {
       return;
     }
 
-    // Update password simulation
+    const studentNis = currentUser.nip_nisn;
+    // Get currently stored password, falling back to either "siswa123" or student's own NIS
+    const storedPw = (db as any).getStudentPassword(studentNis);
+    const expectedOldPw = storedPw || "siswa123";
+    const expectedAltOldPw = storedPw || studentNis;
+
+    if (oldPassword !== expectedOldPw && oldPassword !== expectedAltOldPw) {
+      setPwErrorMsg("Kata sandi lama yang Anda masukkan tidak sesuai.");
+      return;
+    }
+
+    // Save the new password
+    (db as any).setStudentPassword(studentNis, newPassword);
+
     setPwStatusMsg("Kata sandi berhasil diubah secara aman!");
     setOldPassword("");
     setNewPassword("");

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Edit2, Trash2, Search, Filter, BookOpen, School, Users, Check, AlertCircle } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Filter, BookOpen, School, Users, Check, AlertCircle, Key, RefreshCw } from "lucide-react";
 import { db } from "../utils/db";
 import { Subject, ClassRoom, Student } from "../types";
 
@@ -59,9 +59,9 @@ export const SubjectsModule: React.FC = () => {
     setIsFormOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm("Apakah Anda yakin ingin menghapus mata pelajaran ini?")) {
-      db.deleteSubject(id);
+      await db.deleteSubject(id);
       setSubjects(db.getSubjects());
     }
   };
@@ -216,9 +216,9 @@ export const ClassesModule: React.FC = () => {
     setIsFormOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm("Apakah Anda yakin menghapus kelas ini? Menghapus kelas mungkin mempengaruhi penempatan siswa.")) {
-      db.deleteClass(id);
+      await db.deleteClass(id);
       setClasses(db.getClasses());
     }
   };
@@ -427,10 +427,31 @@ export const StudentsModule: React.FC = () => {
     setIsFormOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm("Yakin ingin menghapus data siswa ini? Ini akan menghapus nilai dan presensi terkait.")) {
-      db.deleteStudent(id);
+      await db.deleteStudent(id);
       setStudents(db.getStudents());
+    }
+  };
+
+  const handleResetPassword = (student: Student) => {
+    const confirm = window.confirm(`Reset kata sandi siswa "${student.nama_lengkap}" kembali ke default ("siswa123" atau NISN)?`);
+    if (confirm) {
+      (db as any).setStudentPassword(student.nis, "");
+      setStudents(db.getStudents());
+    }
+  };
+
+  const handleSetCustomPassword = (student: Student) => {
+    const newPw = window.prompt(`Masukkan kata sandi baru untuk siswa "${student.nama_lengkap}" (minimal 6 karakter):`);
+    if (newPw !== null) {
+      if (newPw.trim().length < 6) {
+        alert("Sandi baru harus minimal 6 karakter!");
+        return;
+      }
+      (db as any).setStudentPassword(student.nis, newPw.trim());
+      setStudents(db.getStudents());
+      alert(`Sandi untuk "${student.nama_lengkap}" berhasil diperbarui menjadi: "${newPw.trim()}"`);
     }
   };
 
@@ -622,6 +643,7 @@ export const StudentsModule: React.FC = () => {
                 <th className="p-4">NIS / NISN</th>
                 <th className="p-4">Gender</th>
                 <th className="p-4">Kelas</th>
+                <th className="p-4">Sandi Akun</th>
                 <th className="p-4">Kontak Ortu</th>
                 <th className="p-4 text-center">Aksi</th>
               </tr>
@@ -629,11 +651,12 @@ export const StudentsModule: React.FC = () => {
             <tbody className="divide-y divide-gray-150 dark:divide-gray-800">
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-400">Siswa tidak ditemukan atau data masih kosong.</td>
+                  <td colSpan={7} className="p-8 text-center text-gray-400">Siswa tidak ditemukan atau data masih kosong.</td>
                 </tr>
               ) : (
                 filteredStudents.map((s) => {
                   const sClass = classes.find(c => c.id === s.kelas_id);
+                  const customPw = (db as any).getStudentPassword(s.nis);
                   return (
                     <tr key={s.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-900/10 text-gray-700 dark:text-gray-300">
                       <td className="p-4">
@@ -652,6 +675,29 @@ export const StudentsModule: React.FC = () => {
                         <span className="font-bold bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded">
                           {sClass?.nama || "Unassigned"}
                         </span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`px-2 py-1 rounded text-[10px] font-mono font-semibold ${customPw ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400" : "bg-slate-100 dark:bg-slate-800 text-slate-500"}`}>
+                            {customPw ? customPw : "Default (Sandi: siswa123 / NISN)"}
+                          </span>
+                          <button 
+                            onClick={() => handleSetCustomPassword(s)}
+                            title="Atur Sandi Kustom Baru"
+                            className="p-1 rounded bg-gray-50 dark:bg-slate-850 text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors"
+                          >
+                            <Key size={11} />
+                          </button>
+                          {customPw && (
+                            <button 
+                              onClick={() => handleResetPassword(s)}
+                              title="Reset Sandi ke Default"
+                              className="p-1 rounded bg-red-50 dark:bg-red-950/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                            >
+                              <RefreshCw size={11} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 font-mono">{s.hp_ortu}</td>
                       <td className="p-4">

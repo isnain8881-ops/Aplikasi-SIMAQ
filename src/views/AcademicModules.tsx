@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Award, CheckSquare, BookOpenCheck, ChevronRight, Save, Calendar, FileDown, Printer, AlertCircle, Plus, Eye } from "lucide-react";
+import { Award, CheckSquare, BookOpenCheck, ChevronRight, Save, Calendar, FileDown, Printer, AlertCircle, Plus, Eye, CheckCircle2, Clock, Heart, XCircle, FileText, Activity } from "lucide-react";
 import { db } from "../utils/db";
 import { Subject, ClassRoom, Student, Grade, Attendance, TeachingJournal } from "../types";
 
@@ -366,7 +366,7 @@ export const AttendanceModule: React.FC = () => {
     }));
 
     db.saveAttendanceBulk(payload);
-    setStatusMsg(`Absensi presensi tanggal ${new Date(tanggal).toLocaleDateString("id-ID")} berhasil dicatat!`);
+    setStatusMsg(`Laporan presensi tanggal ${new Date(tanggal).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })} berhasil dicatat ke pangkalan data!`);
     setTimeout(() => setStatusMsg(""), 4000);
   };
 
@@ -378,30 +378,41 @@ export const AttendanceModule: React.FC = () => {
     setAttendanceStatuses(updated);
   };
 
+  // Stats helper
+  const countStatus = (status: "Hadir" | "Izin" | "Sakit" | "Alfa") => {
+    return students.filter(s => (attendanceStatuses[s.id] || "Hadir") === status).length;
+  };
+
   return (
     <div className="space-y-6">
       
       {/* Selector controls */}
-      <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 rounded-2xl p-5 flex flex-wrap gap-4 items-center justify-between">
-        <div className="space-y-1">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Pencatatan Presensi Siswa</h2>
-          <p className="text-xs text-gray-400">Input presensi harian per kelas dan mata pelajaran.</p>
+      <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 rounded-2xl p-5 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
+        <div className="space-y-1 text-center md:text-left">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center justify-center md:justify-start gap-2">
+            <CheckSquare className="text-[#696cff]" size={20} />
+            Pencatatan Presensi Siswa
+          </h2>
+          <p className="text-xs text-gray-400">Input presensi harian secara intuitif per kelas dan mata pelajaran.</p>
         </div>
 
-        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap gap-3 w-full md:w-auto justify-center md:justify-end">
           {/* Tanggal */}
-          <input
-            type="date"
-            value={tanggal}
-            onChange={(e) => setTanggal(e.target.value)}
-            className="px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white font-mono"
-          />
+          <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-900/50 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-750">
+            <Calendar size={14} className="text-gray-400" />
+            <input
+              type="date"
+              value={tanggal}
+              onChange={(e) => setTanggal(e.target.value)}
+              className="text-xs bg-transparent border-none focus:ring-0 text-gray-900 dark:text-white font-mono outline-none"
+            />
+          </div>
 
           {/* Mapel Selector */}
           <select
             value={selectedSubject}
             onChange={(e) => setSelectedSubject(e.target.value)}
-            className="px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white"
+            className="px-3 py-2 text-xs bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-gray-750 rounded-xl text-gray-900 dark:text-white focus:ring-1 focus:ring-indigo-500 outline-none"
           >
             {subjects.map(s => (
               <option key={s.id} value={s.id}>{s.nama}</option>
@@ -412,7 +423,7 @@ export const AttendanceModule: React.FC = () => {
           <select
             value={selectedClass}
             onChange={(e) => setSelectedClass(e.target.value)}
-            className="px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white"
+            className="px-3 py-2 text-xs bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-gray-750 rounded-xl text-gray-900 dark:text-white focus:ring-1 focus:ring-indigo-500 outline-none"
           >
             {classes.map(c => (
               <option key={c.id} value={c.id}>{c.nama}</option>
@@ -422,8 +433,79 @@ export const AttendanceModule: React.FC = () => {
       </div>
 
       {statusMsg && (
-        <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl text-xs">
-          {statusMsg}
+        <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl text-xs flex items-center gap-2 animate-fade-in">
+          <CheckCircle2 size={16} className="text-emerald-500 animate-bounce" />
+          <span className="font-medium">{statusMsg}</span>
+        </div>
+      )}
+
+      {/* Dynamic Statistics Panel - live updates */}
+      {students.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Total */}
+          <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 p-4 rounded-2xl flex flex-col justify-between shadow-sm">
+            <span className="text-[10px] uppercase font-extrabold text-gray-400 tracking-wider">Total Siswa</span>
+            <div className="flex items-baseline gap-1 mt-2">
+              <span className="text-3xl font-black text-gray-800 dark:text-white font-mono">{students.length}</span>
+              <span className="text-xs text-gray-400">anak</span>
+            </div>
+          </div>
+          {/* Hadir */}
+          <div className="bg-white dark:bg-[#1f202e] border border-emerald-100/50 dark:border-emerald-950/20 p-4 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-50/50 dark:bg-emerald-950/10 rounded-bl-full" />
+            <span className="text-[10px] uppercase font-extrabold text-emerald-600 dark:text-emerald-400 tracking-wider flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Hadir
+            </span>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-black text-emerald-500 font-mono">{countStatus("Hadir")}</span>
+              <span className="text-xs text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
+                {students.length > 0 ? Math.round((countStatus("Hadir") / students.length) * 100) : 0}%
+              </span>
+            </div>
+          </div>
+          {/* Izin */}
+          <div className="bg-white dark:bg-[#1f202e] border border-blue-100/50 dark:border-blue-950/20 p-4 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50/50 dark:bg-blue-950/10 rounded-bl-full" />
+            <span className="text-[10px] uppercase font-extrabold text-blue-600 dark:text-blue-400 tracking-wider flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+              Izin
+            </span>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-black text-blue-500 font-mono">{countStatus("Izin")}</span>
+              <span className="text-xs text-blue-600 font-bold bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded">
+                {students.length > 0 ? Math.round((countStatus("Izin") / students.length) * 100) : 0}%
+              </span>
+            </div>
+          </div>
+          {/* Sakit */}
+          <div className="bg-white dark:bg-[#1f202e] border border-amber-100/50 dark:border-amber-950/20 p-4 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50/50 dark:bg-amber-950/10 rounded-bl-full" />
+            <span className="text-[10px] uppercase font-extrabold text-amber-600 dark:text-amber-400 tracking-wider flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              Sakit
+            </span>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-black text-amber-500 font-mono">{countStatus("Sakit")}</span>
+              <span className="text-xs text-amber-600 font-bold bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded">
+                {students.length > 0 ? Math.round((countStatus("Sakit") / students.length) * 100) : 0}%
+              </span>
+            </div>
+          </div>
+          {/* Alfa */}
+          <div className="bg-white dark:bg-[#1f202e] border border-red-100/50 dark:border-red-950/20 p-4 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-16 h-16 bg-red-50/50 dark:bg-red-950/10 rounded-bl-full" />
+            <span className="text-[10px] uppercase font-extrabold text-red-600 dark:text-red-400 tracking-wider flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+              Alfa
+            </span>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-black text-red-500 font-mono">{countStatus("Alfa")}</span>
+              <span className="text-xs text-red-600 font-bold bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded">
+                {students.length > 0 ? Math.round((countStatus("Alfa") / students.length) * 100) : 0}%
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -432,13 +514,39 @@ export const AttendanceModule: React.FC = () => {
         
         {/* Table header with mark all button */}
         <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row justify-between items-center bg-gray-50/50 dark:bg-slate-900/10 gap-3">
-          <span className="text-xs font-semibold text-gray-500">Lembar Absensi Harian ({students.length} Siswa)</span>
-          <div className="flex gap-1">
-            <span className="text-[10px] text-gray-400 self-center mr-1 font-semibold uppercase">Setel Semua:</span>
-            <button type="button" onClick={() => handleMarkAll("Hadir")} className="px-2 py-1 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 text-[10px] font-bold rounded hover:bg-emerald-100">Hadir</button>
-            <button type="button" onClick={() => handleMarkAll("Izin")} className="px-2 py-1 bg-blue-50 dark:bg-blue-950/30 text-blue-600 text-[10px] font-bold rounded hover:bg-blue-100">Izin</button>
-            <button type="button" onClick={() => handleMarkAll("Sakit")} className="px-2 py-1 bg-amber-50 dark:bg-amber-950/30 text-amber-600 text-[10px] font-bold rounded hover:bg-amber-100">Sakit</button>
-            <button type="button" onClick={() => handleMarkAll("Alfa")} className="px-2 py-1 bg-red-50 dark:bg-red-950/30 text-red-600 text-[10px] font-bold rounded hover:bg-red-100">Alfa</button>
+          <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Lembar Absensi Harian ({students.length} Siswa)</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-widest mr-1">Setel Semua:</span>
+            <div className="flex bg-gray-100 dark:bg-slate-900 p-1 rounded-xl gap-1 border border-gray-200/40 dark:border-gray-800">
+              <button 
+                type="button" 
+                onClick={() => handleMarkAll("Hadir")} 
+                className="px-2.5 py-1.5 hover:bg-emerald-500 hover:text-white text-emerald-600 dark:text-emerald-400 hover:shadow-sm text-[10px] font-bold rounded-lg transition-all"
+              >
+                Hadir
+              </button>
+              <button 
+                type="button" 
+                onClick={() => handleMarkAll("Izin")} 
+                className="px-2.5 py-1.5 hover:bg-blue-500 hover:text-white text-blue-600 dark:text-blue-400 hover:shadow-sm text-[10px] font-bold rounded-lg transition-all"
+              >
+                Izin
+              </button>
+              <button 
+                type="button" 
+                onClick={() => handleMarkAll("Sakit")} 
+                className="px-2.5 py-1.5 hover:bg-amber-500 hover:text-white text-amber-600 dark:text-amber-400 hover:shadow-sm text-[10px] font-bold rounded-lg transition-all"
+              >
+                Sakit
+              </button>
+              <button 
+                type="button" 
+                onClick={() => handleMarkAll("Alfa")} 
+                className="px-2.5 py-1.5 hover:bg-red-500 hover:text-white text-red-600 dark:text-red-400 hover:shadow-sm text-[10px] font-bold rounded-lg transition-all"
+              >
+                Alfa
+              </button>
+            </div>
           </div>
         </div>
 
@@ -446,77 +554,109 @@ export const AttendanceModule: React.FC = () => {
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-gray-50 dark:bg-slate-900 border-b border-gray-150 dark:border-gray-800 text-gray-500 uppercase tracking-widest text-[9px] font-bold">
-                <th className="p-4">Nama Lengkap</th>
-                <th className="p-4 w-32">NIS</th>
-                <th className="p-4 w-24 text-center">Hadir</th>
-                <th className="p-4 w-24 text-center">Izin</th>
-                <th className="p-4 w-24 text-center">Sakit</th>
-                <th className="p-4 w-24 text-center">Alfa</th>
+                <th className="p-4 pl-6">Siswa / NIS</th>
+                <th className="p-4 text-center w-36">Gender</th>
+                <th className="p-4 text-right pr-6">Status Kehadiran</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {students.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-400">Pilih kelas yang memiliki siswa aktif.</td>
+                  <td colSpan={3} className="p-8 text-center text-gray-400">Pilih kelas yang memiliki siswa aktif.</td>
                 </tr>
               ) : (
                 students.map(s => {
                   const currentStatus = attendanceStatuses[s.id] || "Hadir";
+                  const initialName = s.nama_lengkap.split(" ").map(w => w[0]).slice(0, 2).join("");
                   return (
-                    <tr key={s.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-900/10">
-                      <td className="p-4 font-bold text-gray-900 dark:text-white">{s.nama_lengkap}</td>
-                      <td className="p-4 font-mono text-gray-400">{s.nis}</td>
+                    <tr key={s.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-900/10 border-b border-gray-100 dark:border-gray-850">
+                      {/* Name & NIS with visual Avatar */}
+                      <td className="p-4 pl-6">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs transition-transform hover:scale-105 shadow-sm ${
+                            s.jenis_kelamin === "Perempuan" 
+                              ? "bg-pink-50 dark:bg-pink-950/20 text-pink-500 border border-pink-100 dark:border-pink-900/30" 
+                              : "bg-[#e7e7ff] dark:bg-indigo-950/40 text-[#696cff] border border-indigo-100/50 dark:border-indigo-900/30"
+                          }`}>
+                            {initialName}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-gray-900 dark:text-white text-sm">{s.nama_lengkap}</h4>
+                            <p className="text-[10px] text-gray-400 font-mono mt-0.5">NISN: {s.nis}</p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Gender Badge */}
+                      <td className="p-4 text-center">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                          s.jenis_kelamin === "Perempuan" 
+                            ? "bg-pink-50 dark:bg-pink-950/10 text-pink-500 border-pink-100 dark:border-pink-900/20" 
+                            : "bg-blue-50 dark:bg-blue-950/10 text-blue-500 border-blue-100 dark:border-blue-900/20"
+                        }`}>
+                          {s.jenis_kelamin === "Perempuan" ? "Putri" : "Putra"}
+                        </span>
+                      </td>
                       
-                      {/* Hadir option */}
-                      <td className="p-4 text-center">
-                        <label className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-250 dark:border-gray-700 cursor-pointer hover:bg-emerald-50/50 dark:hover:bg-emerald-950/10 transition-colors">
-                          <input
-                            type="radio"
-                            name={`att-status-${s.id}`}
-                            checked={currentStatus === "Hadir"}
-                            onChange={() => handleStatusChange(s.id, "Hadir")}
-                            className="text-emerald-500 focus:ring-emerald-500 focus:ring-1"
-                          />
-                        </label>
-                      </td>
+                      {/* Interactive Segmented Selection Buttons */}
+                      <td className="p-4 pr-6">
+                        <div className="flex justify-end gap-1.5">
+                          {/* Hadir Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(s.id, "Hadir")}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-extrabold transition-all duration-200 ${
+                              currentStatus === "Hadir"
+                                ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20 scale-[1.04]"
+                                : "bg-gray-50/50 dark:bg-slate-900/40 text-gray-400 hover:text-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/10"
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${currentStatus === "Hadir" ? "bg-white animate-pulse" : "bg-emerald-500"}`} />
+                            Hadir
+                          </button>
 
-                      {/* Izin option */}
-                      <td className="p-4 text-center">
-                        <label className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-250 dark:border-gray-700 cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-950/10 transition-colors">
-                          <input
-                            type="radio"
-                            name={`att-status-${s.id}`}
-                            checked={currentStatus === "Izin"}
-                            onChange={() => handleStatusChange(s.id, "Izin")}
-                            className="text-blue-500 focus:ring-blue-500"
-                          />
-                        </label>
-                      </td>
+                          {/* Izin Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(s.id, "Izin")}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-extrabold transition-all duration-200 ${
+                              currentStatus === "Izin"
+                                ? "bg-blue-500 text-white shadow-md shadow-blue-500/20 scale-[1.04]"
+                                : "bg-gray-50/50 dark:bg-slate-900/40 text-gray-400 hover:text-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-950/10"
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${currentStatus === "Izin" ? "bg-white animate-pulse" : "bg-blue-500"}`} />
+                            Izin
+                          </button>
 
-                      {/* Sakit option */}
-                      <td className="p-4 text-center">
-                        <label className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-250 dark:border-gray-700 cursor-pointer hover:bg-amber-50/50 dark:hover:bg-amber-950/10 transition-colors">
-                          <input
-                            type="radio"
-                            name={`att-status-${s.id}`}
-                            checked={currentStatus === "Sakit"}
-                            onChange={() => handleStatusChange(s.id, "Sakit")}
-                            className="text-amber-500 focus:ring-amber-500"
-                          />
-                        </label>
-                      </td>
+                          {/* Sakit Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(s.id, "Sakit")}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-extrabold transition-all duration-200 ${
+                              currentStatus === "Sakit"
+                                ? "bg-amber-500 text-white shadow-md shadow-amber-500/20 scale-[1.04]"
+                                : "bg-gray-50/50 dark:bg-slate-900/40 text-gray-400 hover:text-amber-500 hover:bg-amber-50/50 dark:hover:bg-amber-950/10"
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${currentStatus === "Sakit" ? "bg-white animate-pulse" : "bg-amber-500"}`} />
+                            Sakit
+                          </button>
 
-                      {/* Alfa option */}
-                      <td className="p-4 text-center">
-                        <label className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-250 dark:border-gray-700 cursor-pointer hover:bg-red-50/50 dark:hover:bg-red-950/10 transition-colors">
-                          <input
-                            type="radio"
-                            name={`att-status-${s.id}`}
-                            checked={currentStatus === "Alfa"}
-                            onChange={() => handleStatusChange(s.id, "Alfa")}
-                            className="text-red-500 focus:ring-red-500"
-                          />
-                        </label>
+                          {/* Alfa Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(s.id, "Alfa")}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-extrabold transition-all duration-200 ${
+                              currentStatus === "Alfa"
+                                ? "bg-red-500 text-white shadow-md shadow-red-500/20 scale-[1.04]"
+                                : "bg-gray-50/50 dark:bg-slate-900/40 text-gray-400 hover:text-red-500 hover:bg-red-50/50 dark:hover:bg-red-950/10"
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${currentStatus === "Alfa" ? "bg-white animate-pulse" : "bg-red-500"}`} />
+                            Alfa
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -530,7 +670,7 @@ export const AttendanceModule: React.FC = () => {
           <div className="p-5 border-t border-gray-100 dark:border-gray-800 flex justify-end">
             <button
               type="submit"
-              className="px-5 py-2.5 bg-[#696cff] hover:bg-[#5f61e6] text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-md"
+              className="px-5 py-2.5 bg-[#696cff] hover:bg-[#5f61e6] text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-md active:scale-95"
             >
               <Save size={14} />
               Simpan Presensi Kelas
@@ -610,9 +750,9 @@ export const TeachingJournalModule: React.FC = () => {
     setIsFormOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm("Apakah Anda yakin ingin menghapus catatan jurnal mengajar ini?")) {
-      db.deleteJournal(id);
+      await db.deleteJournal(id);
       setJournals(db.getJournals());
     }
   };

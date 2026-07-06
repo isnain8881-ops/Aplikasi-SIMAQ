@@ -7,9 +7,19 @@ interface LoginProps {
   onLoginSuccess: (user: Profile) => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
+  logoEmoji?: string;
+  logoName?: string;
+  logoSub?: string;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLoginSuccess, isDarkMode, onToggleDarkMode }) => {
+export const Login: React.FC<LoginProps> = ({ 
+  onLoginSuccess, 
+  isDarkMode, 
+  onToggleDarkMode,
+  logoEmoji = "🌙",
+  logoName = "SIMAQ",
+  logoSub = "Aliyah Al-Qamar"
+}) => {
   const [role, setRole] = useState<"guru" | "siswa">("guru");
   const [email, setEmail] = useState("isnain8881@gmail.com");
   const [password, setPassword] = useState("isnain123");
@@ -90,10 +100,10 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, isDarkMode, onTogg
         {/* Brand Header */}
         <div className="text-center mb-8 mt-2">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-[#696cff] font-bold text-2xl mb-3 shadow-inner">
-            🌙
+            {logoEmoji}
           </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">SIMAQ Al-Qamar</h1>
-          <p className="text-sm text-gray-400 mt-1">Sistem Informasi & Manajemen Aliyah Al-Qamar</p>
+          <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">{logoName}</h1>
+          <p className="text-sm text-gray-400 mt-1">{logoSub}</p>
         </div>
 
         {!isResetMode ? (

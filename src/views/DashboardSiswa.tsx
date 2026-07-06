@@ -39,52 +39,24 @@ export const DashboardSiswa: React.FC<DashboardSiswaProps> = ({ onViewChange }) 
 
   return (
     <div className="space-y-6">
-      {/* Welcome Banner */}
-      <div className="bg-white dark:bg-[#1f202e] rounded-2xl p-6 border border-gray-100 dark:border-gray-800 flex flex-col md:flex-row justify-between items-center overflow-hidden relative min-h-[140px]">
-        <div className="absolute top-[-50px] right-[-50px] w-48 h-48 rounded-full bg-indigo-50 dark:bg-indigo-950/20 -z-0" />
-        
-        <div className="space-y-3 z-10 text-center md:text-left">
-          <span className="px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider">
-            Portal Siswa Al-Qamar
-          </span>
-          <h2 className="text-xl md:text-2xl font-extrabold text-gray-900 dark:text-white leading-tight">
-            Semangat Belajar, <span className="text-[#696cff]">{currentUser?.nama}</span>! 🎓
-          </h2>
-          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-md">
-            Periksa tugas terbaru dari guru hari ini. Pastikan Anda menyelesaikan tugas tepat waktu untuk menjaga performa akademik terbaik.
-          </p>
-          <div className="flex items-center gap-2 justify-center md:justify-start text-xs text-gray-500 font-mono">
-            <Calendar size={14} />
-            <span>{todayStr}</span>
-          </div>
-        </div>
-        
-        <div className="hidden md:block z-10 flex-shrink-0">
-          <img 
-            src="https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/man-with-laptop-light.png" 
-            alt="Welcome" 
-            className="h-28 object-contain scale-x-[-1]"
-          />
-        </div>
-      </div>
-
       {/* Stats Summary Panel */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Attendance Ring Summary */}
         <div className="bg-white dark:bg-[#1f202e] rounded-2xl p-6 border border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-xs text-gray-400 uppercase tracking-wider font-medium">Persentase Kehadiran</span>
+            <span className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Persentase Kehadiran</span>
             <h3 className="text-3xl font-extrabold text-gray-800 dark:text-white font-mono">{attendanceRate}%</h3>
-            <div className="flex gap-2 text-[10px] text-gray-400 font-mono pt-1">
-              <span>Hadir: {hadirCount}</span>
-              <span>Sakit: {sakitCount}</span>
-              <span>Izin: {izinCount}</span>
-              <span>Alfa: {alfaCount}</span>
+            <div className="flex flex-wrap gap-1 pt-2">
+              <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 text-[9px] font-bold">H: {hadirCount}</span>
+              <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/20 text-blue-600 text-[9px] font-bold">I: {izinCount}</span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/20 text-amber-600 text-[9px] font-bold">S: {sakitCount}</span>
+              <span className="px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/20 text-red-600 text-[9px] font-bold">A: {alfaCount}</span>
             </div>
           </div>
-          <div className="w-16 h-16 rounded-full border-4 border-indigo-50 dark:border-indigo-950 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold font-mono text-sm shadow-inner">
-            {hadirCount}/{totalDays || 3}
+          <div className="w-16 h-16 rounded-full border-4 border-indigo-50 dark:border-indigo-950 flex flex-col items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold font-mono text-[11px] shadow-inner">
+            <span className="text-[14px] leading-none">{hadirCount}</span>
+            <span className="text-[9px] text-gray-400 font-semibold">/{totalDays || 1} hari</span>
           </div>
         </div>
 

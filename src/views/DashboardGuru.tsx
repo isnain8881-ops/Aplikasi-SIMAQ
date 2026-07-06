@@ -6,7 +6,7 @@ import {
 import { db } from "../utils/db";
 import { SneatBarChart, SneatLineChart, SneatDonutChart } from "../components/SneatChart";
 
-export const DashboardGuru: React.FC<{ isDarkMode: boolean }> = ({ isDarkMode }) => {
+export const DashboardGuru: React.FC<{ isDarkMode: boolean; onViewChange?: (view: string) => void }> = ({ isDarkMode, onViewChange }) => {
   // Fetch real-time states
   const subjects = db.getSubjects();
   const classes = db.getClasses();
@@ -25,14 +25,14 @@ export const DashboardGuru: React.FC<{ isDarkMode: boolean }> = ({ isDarkMode })
     day: "numeric" 
   });
 
-  // Calculate statistics
+  // Calculate statistics with target navigation view mapping
   const stats = [
-    { label: "Mata Pelajaran", count: subjects.length, icon: <BookOpen className="text-[#696cff]" />, bg: "bg-[#696cff]/10" },
-    { label: "Total Kelas", count: classes.length, icon: <School className="text-info text-cyan-500" />, bg: "bg-cyan-500/10" },
-    { label: "Total Siswa", count: students.length, icon: <Users className="text-success text-emerald-500" />, bg: "bg-emerald-500/10" },
-    { label: "Materi Ajar", count: materials.length, icon: <FileText className="text-warning text-amber-500" />, bg: "bg-amber-500/10" },
-    { label: "Penugasan", count: assignments.length, icon: <ClipboardList className="text-danger text-red-500" />, bg: "bg-red-500/10" },
-    { label: "Jurnal Mengajar", count: journals.length, icon: <BookOpenCheck className="text-primary text-indigo-500" />, bg: "bg-indigo-500/10" },
+    { label: "Mata Pelajaran", count: subjects.length, icon: <BookOpen className="text-[#696cff]" />, bg: "bg-[#696cff]/10", view: "subjects" },
+    { label: "Total Kelas", count: classes.length, icon: <School className="text-info text-cyan-500" />, bg: "bg-cyan-500/10", view: "classes" },
+    { label: "Total Siswa", count: students.length, icon: <Users className="text-success text-emerald-500" />, bg: "bg-emerald-500/10", view: "students" },
+    { label: "Materi Ajar", count: materials.length, icon: <FileText className="text-warning text-amber-500" />, bg: "bg-amber-500/10", view: "materials" },
+    { label: "Penugasan", count: assignments.length, icon: <ClipboardList className="text-danger text-red-500" />, bg: "bg-red-500/10", view: "assignments" },
+    { label: "Jurnal Mengajar", count: journals.length, icon: <BookOpenCheck className="text-primary text-indigo-500" />, bg: "bg-indigo-500/10", view: "journals" },
   ];
 
   // Prepare chart data for Attendance Trend (Line Chart)
@@ -93,81 +93,49 @@ export const DashboardGuru: React.FC<{ isDarkMode: boolean }> = ({ isDarkMode })
   return (
     <div className="space-y-6">
       
-      {/* Header section with welcome banner */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Sneat welcome banner */}
-        <div className="lg:col-span-2 bg-white dark:bg-[#1f202e] rounded-2xl p-6 border border-gray-100 dark:border-gray-800 flex flex-col md:flex-row justify-between items-center overflow-hidden relative min-h-[160px]">
-          {/* Background circles */}
-          <div className="absolute top-[-50px] right-[-50px] w-48 h-48 rounded-full bg-indigo-50 dark:bg-indigo-950/20 -z-0" />
-          
-          <div className="space-y-3 z-10 text-center md:text-left">
-            <span className="px-3 py-1 rounded-full bg-[#696cff]/10 text-[#696cff] text-xs font-bold uppercase tracking-wider">
-              Aliyah Al-Qamar Portal
-            </span>
-            <h2 className="text-xl md:text-2xl font-extrabold text-gray-900 dark:text-white leading-tight">
-              Selamat Datang Kembali, <span className="text-[#696cff]">Isnain, S.Pd</span>! 🎉
-            </h2>
-            <p className="text-xs text-gray-400 dark:text-gray-500 max-w-md">
-              Anda masuk sebagai <b>Guru Utama</b>. Semua rekapitulasi data akademik, absensi, dan jurnal mengajar dapat dikelola secara instan hari ini.
-            </p>
-            <div className="flex items-center gap-2 justify-center md:justify-start text-xs text-gray-500 font-mono">
-              <Calendar size={14} />
-              <span>{today}</span>
-            </div>
-          </div>
-          
-          <div className="hidden md:block z-10 flex-shrink-0">
-            <img 
-              src="https://demos.themeselection.com/sneat-bootstrap-html-admin-template/assets/img/illustrations/man-with-laptop-light.png" 
-              alt="Welcome" 
-              className="h-32 object-contain"
-            />
-          </div>
-        </div>
-
-        {/* Growth Stats Small card */}
-        <div className="bg-gradient-to-br from-[#696cff] to-[#5f61e6] text-white rounded-2xl p-6 flex flex-col justify-between shadow-xl shadow-[#696cff]20 relative overflow-hidden">
-          <div className="absolute bottom-[-20px] right-[-20px] w-36 h-36 rounded-full bg-white/10" />
-          <div className="flex justify-between items-start">
-            <div className="p-3 bg-white/15 rounded-xl">
-              <TrendingUp size={24} />
-            </div>
-            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-              Aktif TA 2025/2026
-            </span>
-          </div>
-          <div className="space-y-1 z-10">
-            <span className="text-xs opacity-80 uppercase tracking-widest font-mono">Rasio Kehadiran</span>
-            <h3 className="text-3xl font-extrabold font-mono">91.8%</h3>
-            <p className="text-[11px] opacity-70">
-              Rata-rata persentase kehadiran seluruh siswa Aliyah Al-Qamar bulan ini.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Numerical Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {stats.map((item, idx) => (
           <div 
             key={idx} 
-            className="bg-white dark:bg-[#1f202e] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 flex flex-col justify-between hover:translate-y-[-2px] transition-all duration-200"
+            onClick={() => onViewChange?.(item.view)}
+            className="bg-white dark:bg-[#1f202e] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 flex flex-col justify-between hover:translate-y-[-4px] hover:shadow-lg hover:border-[#696cff]/40 dark:hover:border-[#696cff]/30 active:scale-95 cursor-pointer transition-all duration-300 group"
           >
             <div className="flex items-center justify-between">
-              <div className={`p-2.5 rounded-xl ${item.bg}`}>
+              <div className={`p-2.5 rounded-xl ${item.bg} transition-transform duration-300 group-hover:scale-110`}>
                 {item.icon}
               </div>
+              <span className="text-[10px] text-[#696cff] opacity-0 group-hover:opacity-100 transition-opacity duration-300 font-bold font-mono">
+                Buka &rarr;
+              </span>
             </div>
             <div className="mt-4">
-              <span className="text-xs text-gray-400 dark:text-gray-500 font-medium block truncate">
+              <span className="text-xs text-gray-400 dark:text-gray-500 font-medium block truncate group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">
                 {item.label}
               </span>
-              <h4 className="text-2xl font-extrabold text-gray-800 dark:text-white mt-1 font-mono">
+              <h4 className="text-2xl font-extrabold text-gray-800 dark:text-white mt-1 font-mono group-hover:text-[#696cff] transition-colors">
                 {item.count}
               </h4>
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Growth Stats Banner */}
+      <div className="bg-gradient-to-br from-[#696cff] to-[#5f61e6] text-white rounded-2xl p-6 flex flex-col md:flex-row justify-between items-center shadow-xl shadow-[#696cff]/20 relative overflow-hidden min-h-[120px]">
+        <div className="absolute bottom-[-20px] right-[-20px] w-36 h-36 rounded-full bg-white/10" />
+        <div className="flex items-center gap-4 z-10">
+          <div className="p-3 bg-white/15 rounded-xl">
+            <TrendingUp size={24} />
+          </div>
+          <div>
+            <span className="text-xs opacity-80 uppercase tracking-widest font-mono">Rasio Kehadiran Aktif TA 2025/2026</span>
+            <h3 className="text-2xl font-extrabold font-mono mt-0.5">91.8% Kehadiran Siswa</h3>
+          </div>
+        </div>
+        <p className="text-xs opacity-85 max-w-md z-10 text-center md:text-right mt-2 md:mt-0">
+          Rata-rata persentase kehadiran seluruh siswa Aliyah Al-Qamar bulan ini terpantau stabil dan kondusif.
+        </p>
       </div>
 
       {/* Charts section */}

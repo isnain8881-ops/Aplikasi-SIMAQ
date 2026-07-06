@@ -67,11 +67,26 @@ export const ProfileGuru: React.FC = () => {
       return;
     }
 
-    // Update password simulation
-    setPwStatusMsg("Kata sandi berhasil diubah secara aman!");
-    setOldPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
+    const currentPw = db.getGuruPassword ? db.getGuruPassword(currentUser.email) : "";
+    const allowedGuruPasswords = ["isnain123", "admin123", "simaq123", "password"];
+    const isOldCorrect = currentPw ? (oldPassword === currentPw) : allowedGuruPasswords.includes(oldPassword);
+
+    if (!isOldCorrect) {
+      setPwErrorMsg("Kata sandi lama salah.");
+      return;
+    }
+
+    try {
+      if (db.setGuruPassword) {
+        db.setGuruPassword(currentUser.email, newPassword);
+      }
+      setPwStatusMsg("Kata sandi berhasil diubah secara aman!");
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      setPwErrorMsg("Gagal menyimpan kata sandi baru: " + err.message);
+    }
   };
 
   return (

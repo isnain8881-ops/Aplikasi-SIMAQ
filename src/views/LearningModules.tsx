@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Plus, Eye, Trash2, FileText, Download, Link2, Calendar, ClipboardList, Clock, AlertCircle } from "lucide-react";
+import { Plus, Eye, Trash2, FileText, Download, Link2, Calendar, ClipboardList, Clock, AlertCircle, UploadCloud, FileUp, X, Check } from "lucide-react";
 import { db } from "../utils/db";
-import { Material, Assignment } from "../types";
+import { Material, Assignment, AssignmentSubmission } from "../types";
 
 // =========================================================================
 // 1. MATERI AJAR MODULE (MATERIALS)
@@ -28,6 +28,85 @@ export const MaterialsModule: React.FC = () => {
   const [fileType, setFileType] = useState("PDF");
   const [fileUrl, setFileUrl] = useState("");
 
+  // Interactive Upload states
+  const [isDragging, setIsDragging] = useState(false);
+  const [fileSizeStr, setFileSizeStr] = useState("");
+  const [isManualLink, setIsManualLink] = useState(false);
+
+  const autoDetectFileType = (name: string): string => {
+    const ext = name.split('.').pop()?.toLowerCase() || '';
+    if (['pdf'].includes(ext)) return "PDF";
+    if (['doc', 'docx'].includes(ext)) return "Word";
+    if (['ppt', 'pptx'].includes(ext)) return "PPT";
+    if (['mp4', 'm4v', 'avi', 'mov', 'mkv', 'webm'].includes(ext)) return "Video";
+    return "PDF";
+  };
+
+  const handleFileSelection = (file: File) => {
+    setError("");
+    const detectedType = autoDetectFileType(file.name);
+    setFileName(file.name);
+    setFileType(detectedType);
+
+    // Human-readable file size
+    let sizeStr = "";
+    if (file.size < 1024 * 1024) {
+      sizeStr = `${Math.round(file.size / 1024)} KB`;
+    } else {
+      sizeStr = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    setFileSizeStr(sizeStr);
+
+    // Base64 conversion with safety threshold (approx 1MB)
+    if (file.size <= 1.2 * 1024 * 1024) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result && typeof e.target.result === "string") {
+          setFileUrl(e.target.result);
+        }
+      };
+      reader.onerror = () => {
+        setError("Gagal membaca file untuk pengarsipan lokal.");
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // Create session Object URL
+      try {
+        const localBlobUrl = URL.createObjectURL(file);
+        setFileUrl(localBlobUrl);
+        // Display info
+        setError("Info: File berukuran besar (> 1.2MB). Tautan unduhan aktif selama sesi browser berjalan.");
+      } catch (err) {
+        setFileUrl(`https://simaq-storage.local/files/${encodeURIComponent(file.name)}`);
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileSelection(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleClearFile = () => {
+    setFileName("");
+    setFileUrl("");
+    setFileSizeStr("");
+    setError("");
+  };
+
   const handleOpenAdd = () => {
     setTanggal(new Date().toISOString().split("T")[0]);
     setSelectedSubject(subjects[0]?.id || "");
@@ -39,6 +118,9 @@ export const MaterialsModule: React.FC = () => {
     setFileType("PDF");
     setFileUrl("");
     setError("");
+    setFileSizeStr("");
+    setIsDragging(false);
+    setIsManualLink(false);
     setIsFormOpen(true);
   };
 
@@ -69,9 +151,9 @@ export const MaterialsModule: React.FC = () => {
     setIsFormOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm("Apakah Anda yakin ingin menghapus materi ajar ini?")) {
-      db.deleteMaterial(id);
+      await db.deleteMaterial(id);
       setMaterials(db.getMaterials());
     }
   };
@@ -187,25 +269,122 @@ export const MaterialsModule: React.FC = () => {
                 className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
               />
             </div>
-            <div>
-              <label className="block text-gray-500 dark:text-gray-400 mb-1.5 font-semibold font-mono">Nama Berkas Lampiran</label>
-              <input
-                type="text"
-                value={fileName}
-                onChange={(e) => setFileName(e.target.value)}
-                placeholder="Buku_Saku_Limit.pdf"
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-gray-500 dark:text-gray-400 mb-1.5 font-semibold font-mono">Tautan/Link Unduhan (URL)</label>
-              <input
-                type="text"
-                value={fileUrl}
-                onChange={(e) => setFileUrl(e.target.value)}
-                placeholder="https://drive.google.com/..."
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
-              />
+            {/* Direct File Upload & Attachment Area */}
+            <div className="md:col-span-3 border border-dashed border-gray-200 dark:border-gray-800 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-900/20">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider font-mono">
+                  Berkas / Dokumen Lampiran Materi
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsManualLink(!isManualLink);
+                    setError("");
+                  }}
+                  className="text-[11px] font-semibold text-[#696cff] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Link2 size={13} />
+                  {isManualLink ? "Gunakan Unggah File Langsung" : "Gunakan Tautan/URL Manual"}
+                </button>
+              </div>
+
+              {!isManualLink ? (
+                /* Interactive Drag and Drop Zone */
+                <div className="space-y-3">
+                  {!fileName ? (
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all duration-200 cursor-pointer ${
+                        isDragging 
+                          ? "border-[#696cff] bg-[#696cff]/5" 
+                          : "border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-white dark:bg-[#1f202e]"
+                      }`}
+                      onClick={() => document.getElementById("materi-file-input")?.click()}
+                    >
+                      <input
+                        id="materi-file-input"
+                        type="file"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files.length > 0) {
+                            handleFileSelection(e.target.files[0]);
+                          }
+                        }}
+                      />
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-full text-[#696cff] shadow-sm">
+                          <UploadCloud size={24} className="animate-bounce" style={{ animationDuration: '3s' }} />
+                        </div>
+                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                          Seret & letakkan berkas di sini, atau <span className="text-[#696cff] hover:underline">klik untuk memilih</span>
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                          Mendukung PDF, Word, PPT, Video, Gambar (Maks. 50MB)
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Selected File Card */
+                    <div className="bg-white dark:bg-[#1f202e] border border-gray-200 dark:border-gray-800 rounded-xl p-3 flex items-center justify-between gap-3 animate-in fade-in duration-200">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 rounded-xl flex-shrink-0 font-bold text-xs uppercase font-mono">
+                          {fileType}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate pr-2" title={fileName}>
+                            {fileName}
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5 font-mono">
+                            <span>{fileSizeStr || "Ukuran tidak diketahui"}</span>
+                            <span>•</span>
+                            <span className="text-emerald-500 font-bold flex items-center gap-0.5">
+                              <Check size={11} /> Siap diunggah
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleClearFile}
+                        className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-red-500 transition-colors cursor-pointer"
+                        title="Hapus file ini"
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Manual Inputs for Link */
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="md:col-span-1">
+                    <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                      Nama Berkas Manual
+                    </label>
+                    <input
+                      type="text"
+                      value={fileName}
+                      onChange={(e) => setFileName(e.target.value)}
+                      placeholder="Contoh: Buku_Saku_Trigonometri.pdf"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                      Tautan/URL Unduhan (Google Drive, YouTube, Dropbox, dll)
+                    </label>
+                    <input
+                      type="text"
+                      value={fileUrl}
+                      onChange={(e) => setFileUrl(e.target.value)}
+                      placeholder="https://drive.google.com/..."
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-lg text-[#696cff] dark:text-indigo-400 font-mono text-xs"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100 dark:border-gray-800">
@@ -309,6 +488,7 @@ export const AssignmentsModule: React.FC = () => {
 
   // Submissions review overlay
   const [activeReviewAssignment, setActiveReviewAssignment] = useState<Assignment | null>(null);
+  const [submissionsList, setSubmissionsList] = useState<AssignmentSubmission[]>([]);
 
   // Form Fields
   const [tanggal, setTanggal] = useState(new Date().toISOString().split("T")[0]);
@@ -359,19 +539,47 @@ export const AssignmentsModule: React.FC = () => {
     setIsFormOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm("Menghapus penugasan ini juga akan menghapus seluruh data pengerjaan tugas dari siswa. Yakin ingin melanjutkan?")) {
-      db.deleteAssignment(id);
+      await db.deleteAssignment(id);
       setAssignments(db.getAssignments());
     }
   };
 
   // Grade/Save Submission Review
   const [reviewGrade, setReviewGrade] = useState<Record<string, { grade: string; feedback: string }>>({});
+  const [reviewStatusMsg, setReviewStatusMsg] = useState("");
+  const [reviewErrorMsg, setReviewErrorMsg] = useState("");
 
   const loadSubmissions = () => {
     if (!activeReviewAssignment) return [];
-    return db.getSubmissions().filter(sub => sub.assignment_id === activeReviewAssignment.id);
+    
+    // Get all students in the assigned class
+    const classStudents = db.getStudents().filter(s => s.kelas_id === activeReviewAssignment.kelas_id);
+    
+    // Map each student to their submission slot
+    return classStudents.map(student => {
+      const existing = submissionsList.find(s => s.siswa_id === student.id);
+      if (existing) return existing;
+      
+      // Look up in all submissions in case submissionsList was not fully populated
+      const inDb = db.getSubmissions().find(s => s.assignment_id === activeReviewAssignment.id && s.siswa_id === student.id);
+      if (inDb) return inDb;
+
+      // Return a virtual submission
+      const virtualSub: AssignmentSubmission = {
+        id: `subm-${activeReviewAssignment.id}-${student.id}`,
+        assignment_id: activeReviewAssignment.id,
+        siswa_id: student.id,
+        status: "Belum Dikerjakan",
+        tanggal_submit: "",
+        file_name: "",
+        file_url: "",
+        nilai: null,
+        catatan_guru: ""
+      };
+      return virtualSub;
+    });
   };
 
   const handleGradeChange = (submissionId: string, field: "grade" | "feedback", value: string) => {
@@ -385,20 +593,58 @@ export const AssignmentsModule: React.FC = () => {
     }));
   };
 
-  const handleSaveGradeReview = (subId: string) => {
+  const handleSaveGradeReview = async (subId: string) => {
+    setReviewStatusMsg("");
+    setReviewErrorMsg("");
+    
     const input = reviewGrade[subId] || { grade: "0", feedback: "" };
     const score = parseFloat(input.grade) || 0;
 
     const allSubs = db.getSubmissions();
     const idx = allSubs.findIndex(s => s.id === subId);
+    
+    let updatedSub: AssignmentSubmission;
     if (idx >= 0) {
-      allSubs[idx] = {
+      updatedSub = {
         ...allSubs[idx],
         nilai: Math.min(Math.max(score, 0), 100),
         catatan_guru: input.feedback
       };
-      localStorage.setItem("simaq_submissions", JSON.stringify(allSubs));
-      alert("Nilai pengerjaan tugas siswa berhasil diunggah!");
+    } else {
+      // Find the corresponding student submission from loadSubmissions()
+      const matchingVirtual = loadSubmissions().find(s => s.id === subId);
+      if (!matchingVirtual) {
+        setReviewErrorMsg("Data pengerjaan tugas siswa tidak ditemukan!");
+        return;
+      }
+      updatedSub = {
+        ...matchingVirtual,
+        nilai: Math.min(Math.max(score, 0), 100),
+        catatan_guru: input.feedback
+      };
+    }
+
+    try {
+      await db.saveSubmission(updatedSub);
+      
+      // Update local states to immediately refresh the UI
+      if (activeReviewAssignment) {
+        const refreshedSubs = db.getSubmissions().filter(s => s.assignment_id === activeReviewAssignment.id);
+        setSubmissionsList(refreshedSubs);
+
+        // Pre-fill existing submission reviews
+        const reviews = { ...reviewGrade };
+        reviews[subId] = {
+          grade: String(updatedSub.nilai),
+          feedback: updatedSub.catatan_guru || ""
+        };
+        setReviewGrade(reviews);
+      }
+      
+      setReviewStatusMsg("Nilai pengerjaan tugas siswa berhasil disimpan!");
+      setTimeout(() => setReviewStatusMsg(""), 5000);
+    } catch (err: any) {
+      setReviewErrorMsg(`Gagal menyimpan nilai: ${err.message || String(err)}`);
     }
   };
 
@@ -592,9 +838,12 @@ export const AssignmentsModule: React.FC = () => {
 
                   <button
                     onClick={() => {
+                      setReviewStatusMsg("");
+                      setReviewErrorMsg("");
                       setActiveReviewAssignment(a);
                       // Pre-fill existing submission reviews
                       const activeSubs = db.getSubmissions().filter(s => s.assignment_id === a.id);
+                      setSubmissionsList(activeSubs);
                       const reviews: typeof reviewGrade = {};
                       activeSubs.forEach(s => {
                         reviews[s.id] = {
@@ -643,6 +892,17 @@ export const AssignmentsModule: React.FC = () => {
 
             {/* List of Student Submissions */}
             <div className="flex-1 p-5 overflow-y-auto space-y-4">
+              {reviewStatusMsg && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-bold">
+                  ✅ {reviewStatusMsg}
+                </div>
+              )}
+              {reviewErrorMsg && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold">
+                  ⚠️ {reviewErrorMsg}
+                </div>
+              )}
+
               {loadSubmissions().length === 0 ? (
                 <div className="py-8 text-center text-xs text-gray-400">Belum ada siswa di kelas ini.</div>
               ) : (

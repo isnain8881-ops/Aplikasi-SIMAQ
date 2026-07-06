@@ -44,7 +44,7 @@ export const StudentModules: React.FC<StudentProps> = ({ currentStudent }) => {
       const hasSlot = currentStudentSubs.some(s => s.assignment_id === asg.id);
       if (!hasSlot) {
         const newSlot: AssignmentSubmission = {
-          id: `sub-${asg.id}-${currentStudent.id}`,
+          id: `subm-${asg.id}-${currentStudent.id}`,
           assignment_id: asg.id,
           siswa_id: currentStudent.id,
           status: "Belum Dikerjakan",
@@ -69,7 +69,7 @@ export const StudentModules: React.FC<StudentProps> = ({ currentStudent }) => {
     loadAssignmentsAndSubmissions();
   }, [currentStudent]);
 
-  const handleSubmitTask = (e: React.FormEvent) => {
+  const handleSubmitTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeSubmitAssignment) return;
 
@@ -81,22 +81,30 @@ export const StudentModules: React.FC<StudentProps> = ({ currentStudent }) => {
     const allSubs = db.getSubmissions();
     const idx = allSubs.findIndex(s => s.assignment_id === activeSubmitAssignment.id && s.siswa_id === currentStudent.id);
 
-    if (idx >= 0) {
-      allSubs[idx] = {
-        ...allSubs[idx],
-        status: "Selesai",
-        tanggal_submit: new Date().toISOString(),
-        file_name: fileName.trim(),
-        file_url: fileUrl.trim() || "https://example.com/mock-student-answer"
-      };
+    const baseSub = idx >= 0 ? allSubs[idx] : {
+      id: `subm-${activeSubmitAssignment.id}-${currentStudent.id}`,
+      assignment_id: activeSubmitAssignment.id,
+      siswa_id: currentStudent.id,
+      status: "Belum Dikerjakan" as const,
+      tanggal_submit: "",
+      file_name: "",
+      file_url: ""
+    };
 
-      localStorage.setItem("simaq_submissions", JSON.stringify(allSubs));
-      setStatusMsg("Selamat! Jawaban tugas Anda berhasil dikirim ke guru.");
-      setTimeout(() => setStatusMsg(""), 5000);
+    const updatedSub: AssignmentSubmission = {
+      ...baseSub,
+      status: "Selesai",
+      tanggal_submit: new Date().toISOString(),
+      file_name: fileName.trim(),
+      file_url: fileUrl.trim() || "https://example.com/mock-student-answer"
+    };
 
-      setActiveSubmitAssignment(null);
-      loadAssignmentsAndSubmissions();
-    }
+    await db.saveSubmission(updatedSub);
+    setStatusMsg("Selamat! Jawaban tugas Anda berhasil dikirim ke guru.");
+    setTimeout(() => setStatusMsg(""), 5000);
+
+    setActiveSubmitAssignment(null);
+    loadAssignmentsAndSubmissions();
   };
 
   return (
@@ -139,40 +147,82 @@ export const StudentModules: React.FC<StudentProps> = ({ currentStudent }) => {
       {/* TABS CONTENT */}
       {activeTab === "attendance" ? (
         <div className="space-y-6">
-          {/* Statistics summary circles */}
+          {/* Statistics summary circles with progress bars and dynamic indicators */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 p-5 rounded-2xl text-center space-y-1">
-              <span className="text-[10px] uppercase font-bold text-gray-400">Persentase Hadir</span>
-              <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{attendanceRate}%</p>
+            <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 p-5 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-50/50 dark:bg-indigo-950/10 rounded-bl-full" />
+              <span className="text-[10px] uppercase font-extrabold text-indigo-600 dark:text-indigo-400 tracking-wider">Persentase Hadir</span>
+              <div className="flex items-baseline gap-1 mt-2">
+                <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono">{attendanceRate}%</span>
+              </div>
+              <div className="w-full bg-gray-100 dark:bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
+                <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${attendanceRate}%` }} />
+              </div>
             </div>
-            <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 p-5 rounded-2xl text-center space-y-1">
-              <span className="text-[10px] uppercase font-bold text-gray-400">Total Hadir</span>
-              <p className="text-2xl font-black text-emerald-500">{totalHadir}x</p>
+
+            <div className="bg-white dark:bg-[#1f202e] border border-emerald-100/40 dark:border-emerald-950/20 p-5 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-50/50 dark:bg-emerald-950/10 rounded-bl-full" />
+              <span className="text-[10px] uppercase font-extrabold text-emerald-600 dark:text-emerald-400 tracking-wider flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Hadir
+              </span>
+              <div className="flex items-baseline gap-1 mt-2">
+                <span className="text-2xl font-black text-emerald-500 font-mono">{totalHadir}</span>
+                <span className="text-[10px] text-gray-400">kali</span>
+              </div>
+              <div className="w-full bg-gray-100 dark:bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${attendanceRecords.length > 0 ? Math.round((totalHadir / attendanceRecords.length) * 100) : 100}%` }} />
+              </div>
             </div>
-            <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 p-5 rounded-2xl text-center space-y-1">
-              <span className="text-[10px] uppercase font-bold text-gray-400">Total Sakit</span>
-              <p className="text-2xl font-black text-amber-500">{totalSakit}x</p>
+
+            <div className="bg-white dark:bg-[#1f202e] border border-blue-100/40 dark:border-blue-950/20 p-5 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50/50 dark:bg-blue-950/10 rounded-bl-full" />
+              <span className="text-[10px] uppercase font-extrabold text-blue-600 dark:text-blue-400 tracking-wider">Izin</span>
+              <div className="flex items-baseline gap-1 mt-2">
+                <span className="text-2xl font-black text-blue-500 font-mono">{totalIzin}</span>
+                <span className="text-[10px] text-gray-400">kali</span>
+              </div>
+              <div className="w-full bg-gray-100 dark:bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
+                <div className="bg-blue-500 h-full rounded-full transition-all duration-500" style={{ width: `${attendanceRecords.length > 0 ? Math.round((totalIzin / attendanceRecords.length) * 100) : 0}%` }} />
+              </div>
             </div>
-            <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 p-5 rounded-2xl text-center space-y-1">
-              <span className="text-[10px] uppercase font-bold text-gray-400">Total Izin</span>
-              <p className="text-2xl font-black text-blue-500">{totalIzin}x</p>
+
+            <div className="bg-white dark:bg-[#1f202e] border border-amber-100/40 dark:border-amber-950/20 p-5 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50/50 dark:bg-amber-950/10 rounded-bl-full" />
+              <span className="text-[10px] uppercase font-extrabold text-amber-600 dark:text-amber-400 tracking-wider">Sakit</span>
+              <div className="flex items-baseline gap-1 mt-2">
+                <span className="text-2xl font-black text-amber-500 font-mono">{totalSakit}</span>
+                <span className="text-[10px] text-gray-400">kali</span>
+              </div>
+              <div className="w-full bg-gray-100 dark:bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
+                <div className="bg-amber-500 h-full rounded-full transition-all duration-500" style={{ width: `${attendanceRecords.length > 0 ? Math.round((totalSakit / attendanceRecords.length) * 100) : 0}%` }} />
+              </div>
             </div>
-            <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 p-5 rounded-2xl text-center col-span-2 lg:col-span-1 space-y-1">
-              <span className="text-[10px] uppercase font-bold text-gray-400">Total Alfa</span>
-              <p className="text-2xl font-black text-red-500">{totalAlfa}x</p>
+
+            <div className="bg-white dark:bg-[#1f202e] border border-red-100/40 dark:border-red-950/20 p-5 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden group col-span-2 lg:col-span-1">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-red-50/50 dark:bg-red-950/10 rounded-bl-full" />
+              <span className="text-[10px] uppercase font-extrabold text-red-600 dark:text-red-400 tracking-wider">Alfa</span>
+              <div className="flex items-baseline gap-1 mt-2">
+                <span className="text-2xl font-black text-red-500 font-mono">{totalAlfa}</span>
+                <span className="text-[10px] text-gray-400">kali</span>
+              </div>
+              <div className="w-full bg-gray-100 dark:bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
+                <div className="bg-red-500 h-full rounded-full transition-all duration-500" style={{ width: `${attendanceRecords.length > 0 ? Math.round((totalAlfa / attendanceRecords.length) * 100) : 0}%` }} />
+              </div>
             </div>
           </div>
 
           {/* Attendance Log Table */}
-          <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-gray-100 dark:border-gray-800">
-              <span className="text-xs font-bold text-gray-500 uppercase">Riwayat Daftar Presensi Mata Pelajaran</span>
+          <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm animate-fade-in">
+            <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#696cff]" />
+              <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Riwayat Daftar Presensi Lengkap Mata Pelajaran</span>
             </div>
 
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-gray-50 dark:bg-slate-900 border-b border-gray-150 dark:border-gray-800 text-gray-500 uppercase tracking-widest text-[9px] font-bold">
-                  <th className="p-4">Tanggal Pembelajaran</th>
+                  <th className="p-4 pl-6">Tanggal Pembelajaran</th>
                   <th className="p-4">Mata Pelajaran</th>
                   <th className="p-4 text-center">Status Presensi</th>
                 </tr>
@@ -186,16 +236,34 @@ export const StudentModules: React.FC<StudentProps> = ({ currentStudent }) => {
                   attendanceRecords.map(r => {
                     const subj = subjects.find(s => s.id === r.subject_id);
                     return (
-                      <tr key={r.id}>
-                        <td className="p-4 font-bold font-mono text-gray-900 dark:text-white">{r.tanggal}</td>
-                        <td className="p-4 font-semibold text-gray-600 dark:text-gray-300">{subj?.nama || "Mata Pelajaran"}</td>
+                      <tr key={r.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-900/10 transition-colors">
+                        <td className="p-4 pl-6">
+                          <div className="flex items-center gap-2">
+                            <Calendar size={14} className="text-gray-400" />
+                            <span className="font-bold text-gray-900 dark:text-white font-mono">
+                              {new Date(r.tanggal).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-4 font-semibold text-gray-600 dark:text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                            {subj?.nama || "Mata Pelajaran"}
+                          </div>
+                        </td>
                         <td className="p-4 text-center">
-                          <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
-                            r.status === "Hadir" ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600" :
-                            r.status === "Izin" ? "bg-blue-50 dark:bg-blue-950/20 text-blue-600" :
-                            r.status === "Sakit" ? "bg-amber-50 dark:bg-amber-950/20 text-amber-600" :
-                            "bg-red-50 dark:bg-red-950/20 text-red-600"
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border ${
+                            r.status === "Hadir" ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border-emerald-200/55 dark:border-emerald-800/30" :
+                            r.status === "Izin" ? "bg-blue-50 dark:bg-blue-950/20 text-blue-600 border-blue-200/55 dark:border-blue-800/30" :
+                            r.status === "Sakit" ? "bg-amber-50 dark:bg-amber-950/20 text-amber-600 border-amber-200/55 dark:border-amber-800/30" :
+                            "bg-red-50 dark:bg-red-950/20 text-red-600 border-red-200/55 dark:border-red-800/30"
                           }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              r.status === "Hadir" ? "bg-emerald-500" :
+                              r.status === "Izin" ? "bg-blue-500" :
+                              r.status === "Sakit" ? "bg-amber-500" :
+                              "bg-red-500"
+                            }`} />
                             {r.status}
                           </span>
                         </td>

@@ -10,8 +10,28 @@ const getCleanEnvValue = (val: string): string => {
   return val.replace(/['"]/g, "").trim();
 };
 
-const SUPABASE_URL = getCleanEnvValue((import.meta as any).env.VITE_SUPABASE_URL || "");
-const SUPABASE_ANON_KEY = getCleanEnvValue((import.meta as any).env.VITE_SUPABASE_ANON_KEY || "");
+const getSupabaseKeys = () => {
+  let url = "";
+  let key = "";
+  if (typeof window !== "undefined") {
+    url = localStorage.getItem("simaq_supabase_url") || "";
+    key = localStorage.getItem("simaq_supabase_anon_key") || "";
+  }
+  if (!url) {
+    url = (import.meta as any).env.VITE_SUPABASE_URL || "";
+  }
+  if (!key) {
+    key = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || "";
+  }
+  return {
+    url: getCleanEnvValue(url),
+    key: getCleanEnvValue(key)
+  };
+};
+
+const keys = getSupabaseKeys();
+export const SUPABASE_URL = keys.url;
+export const SUPABASE_ANON_KEY = keys.key;
 
 export const isSupabaseConfigured = (): boolean => {
   const isDefaultOrPlaceholder = (val: string) => {
@@ -29,6 +49,23 @@ export const isSupabaseConfigured = (): boolean => {
     !isDefaultOrPlaceholder(SUPABASE_URL) &&
     !isDefaultOrPlaceholder(SUPABASE_ANON_KEY)
   );
+};
+
+// Helper functions for custom settings UI
+export const saveCustomSupabaseKeys = (url: string, key: string) => {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("simaq_supabase_url", url.trim());
+    localStorage.setItem("simaq_supabase_anon_key", key.trim());
+    localStorage.removeItem("simaq_has_synced_supabase"); // Reset sync state to trigger a full pull-overwrite on next login
+  }
+};
+
+export const clearCustomSupabaseKeys = () => {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("simaq_supabase_url");
+    localStorage.removeItem("simaq_supabase_anon_key");
+    localStorage.removeItem("simaq_has_synced_supabase");
+  }
 };
 
 // Simple logger or client init
@@ -250,7 +287,7 @@ if (typeof window !== "undefined") {
 type ErrorListener = (message: string) => void;
 let errorListeners: ErrorListener[] = [];
 
-const handleSupabaseResult = (promise: Promise<{ error: any }>, actionDesc: string) => {
+const handleSupabaseResult = (promise: any, actionDesc: string) => {
   promise.then(({ error }) => {
     if (error) {
       const errMsg = error.message || String(error);
@@ -278,6 +315,8 @@ const handleSupabaseResult = (promise: Promise<{ error: any }>, actionDesc: stri
 
 export const db = {
   isSupabaseConfigured: isSupabaseConfigured,
+  saveCustomSupabaseKeys: saveCustomSupabaseKeys,
+  clearCustomSupabaseKeys: clearCustomSupabaseKeys,
   
   // --- ERROR NOTIFICATION SERVICE ---
   addErrorListener: (listener: ErrorListener) => {
@@ -298,13 +337,58 @@ export const db = {
   },
 
   // --- AUTH SERVICES ---
+  getStudentPassword: (nis: string): string => {
+    if (typeof window === "undefined") return "siswa123";
+    try {
+      const passwordsRaw = localStorage.getItem("simaq_student_passwords");
+      const passwords = passwordsRaw ? JSON.parse(passwordsRaw) : {};
+      return passwords[nis] || ""; // Returns empty if not set yet, so we can fallback to default
+    } catch {
+      return "";
+    }
+  },
+
+  setStudentPassword: (nis: string, pw: string) => {
+    if (typeof window === "undefined") return;
+    try {
+      const passwordsRaw = localStorage.getItem("simaq_student_passwords");
+      const passwords = passwordsRaw ? JSON.parse(passwordsRaw) : {};
+      passwords[nis] = pw.trim();
+      localStorage.setItem("simaq_student_passwords", JSON.stringify(passwords));
+    } catch (e) {
+      console.error("Gagal menyimpan password kustom siswa", e);
+    }
+  },
+
+  getGuruPassword: (email: string): string => {
+    if (typeof window === "undefined") return "isnain123";
+    try {
+      const passwordsRaw = localStorage.getItem("simaq_guru_passwords");
+      const passwords = passwordsRaw ? JSON.parse(passwordsRaw) : {};
+      return passwords[email.trim().toLowerCase()] || "";
+    } catch {
+      return "";
+    }
+  },
+
+  setGuruPassword: (email: string, pw: string) => {
+    if (typeof window === "undefined") return;
+    try {
+      const passwordsRaw = localStorage.getItem("simaq_guru_passwords");
+      const passwords = passwordsRaw ? JSON.parse(passwordsRaw) : {};
+      passwords[email.trim().toLowerCase()] = pw.trim();
+      localStorage.setItem("simaq_guru_passwords", JSON.stringify(passwords));
+    } catch (e) {
+      console.error("Gagal menyimpan password kustom guru", e);
+    }
+  },
+
   login: async (email: string, password: string, role: "guru" | "siswa"): Promise<{ success: boolean; user?: Profile; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
     // Determine expected passwords
     const allowedGuruPasswords = ["isnain123", "admin123", "simaq123", "password"];
-    const allowedSiswaPasswords = ["siswa123", "fatih123", "simaq123", "password"];
 
     // Simulation logic (Supabase is handled if configured, otherwise local fallback)
     if (isSupabaseConfigured()) {
@@ -336,28 +420,59 @@ export const db = {
         localStorage.setItem("simaq_current_user", JSON.stringify(prof));
         return { success: true, user: prof };
       } catch (err: any) {
-        console.warn("Supabase Auth failed, falling back to local simulation for demo accounts:", err.message);
+        console.warn("Supabase Auth failed, falling back to local database lookups:", err.message);
         
-        // Fallback to local login if using the demo credentials so they are NEVER locked out!
+        // Fallback to local lookup
         if (role === "guru") {
           const storedGuruStr = localStorage.getItem("simaq_profile_guru");
           const guru: Profile = storedGuruStr ? JSON.parse(storedGuruStr) : DEFAULT_GURU;
-          if (cleanEmail === guru.email.toLowerCase() && allowedGuruPasswords.includes(cleanPassword)) {
+          const customPw = db.getGuruPassword(guru.email);
+          const isMatch = customPw 
+            ? (cleanPassword === customPw) 
+            : allowedGuruPasswords.includes(cleanPassword);
+          if (cleanEmail === guru.email.toLowerCase() && isMatch) {
             localStorage.setItem("simaq_current_user", JSON.stringify(guru));
             return { success: true, user: guru };
           }
         } else {
-          const storedSiswaStr = localStorage.getItem("simaq_profile_siswa");
-          const siswa: Profile = storedSiswaStr ? JSON.parse(storedSiswaStr) : DEFAULT_SISWA_PROFILE;
-          if ((cleanEmail === siswa.email.toLowerCase() || email === siswa.nip_nisn) && allowedSiswaPasswords.includes(cleanPassword)) {
-            localStorage.setItem("simaq_current_user", JSON.stringify(siswa));
-            return { success: true, user: siswa };
+          // Individual Student Account lookup
+          const studentsList = db.getStudents();
+          const foundStudent = studentsList.find(s => 
+            s.nis === email || 
+            s.nis === cleanEmail ||
+            (s.nis && cleanEmail === `${s.nis.toLowerCase()}@al-qamar.sch.id`)
+          );
+
+          if (foundStudent) {
+            const customPw = db.getStudentPassword(foundStudent.nis);
+            // Allow custom password OR default (NIS itself or 'siswa123')
+            const isMatch = customPw 
+              ? (cleanPassword === customPw) 
+              : (cleanPassword === "siswa123" || cleanPassword === foundStudent.nis || cleanPassword === "fatih123" || cleanPassword === "simaq123");
+
+            if (isMatch) {
+              const siswaProfile: Profile = {
+                id: foundStudent.id,
+                role: "siswa",
+                nama: foundStudent.nama_lengkap,
+                email: `${foundStudent.nis}@al-qamar.sch.id`,
+                nip_nisn: foundStudent.nis,
+                hp: foundStudent.hp_ortu,
+                photo_url: foundStudent.jenis_kelamin === "Perempuan"
+                  ? "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200"
+                  : "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200",
+              };
+              localStorage.setItem("simaq_current_user", JSON.stringify(siswaProfile));
+              return { success: true, user: siswaProfile };
+            } else {
+              return { success: false, error: "Kata sandi Siswa salah! Silakan hubungi Guru Anda untuk pengaturan ulang kata sandi." };
+            }
           }
         }
         
         return { 
           success: false, 
-          error: `Koneksi Supabase gagal/Akun tidak ditemukan: ${err.message}. Namun, Anda tetap bisa masuk menggunakan database lokal dengan sandi: 'isnain123' (guru) atau 'siswa123' (siswa).` 
+          error: `Koneksi database gagal atau akun tidak ditemukan. Coba lagi dengan email/NISN yang terdaftar.` 
         };
       }
     } else {
@@ -367,28 +482,54 @@ export const db = {
         const guru: Profile = storedGuruStr ? JSON.parse(storedGuruStr) : DEFAULT_GURU;
         
         if (cleanEmail === guru.email.toLowerCase()) {
-          if (allowedGuruPasswords.includes(cleanPassword)) {
+          const customPw = db.getGuruPassword(guru.email);
+          const isMatch = customPw 
+            ? (cleanPassword === customPw) 
+            : allowedGuruPasswords.includes(cleanPassword);
+          if (isMatch) {
             localStorage.setItem("simaq_current_user", JSON.stringify(guru));
             return { success: true, user: guru };
           } else {
-            return { success: false, error: "Kata sandi Guru salah! Silakan gunakan sandi: 'isnain123'" };
+            return { success: false, error: "Kata sandi Guru salah! Silakan gunakan kata sandi baru Anda atau 'isnain123'" };
           }
         } else {
           return { success: false, error: "Email Guru tidak terdaftar! Silakan gunakan: 'isnain8881@gmail.com'" };
         }
       } else {
-        const storedSiswaStr = localStorage.getItem("simaq_profile_siswa");
-        const siswa: Profile = storedSiswaStr ? JSON.parse(storedSiswaStr) : DEFAULT_SISWA_PROFILE;
-        
-        if (cleanEmail === siswa.email.toLowerCase() || email === siswa.nip_nisn) {
-          if (allowedSiswaPasswords.includes(cleanPassword)) {
-            localStorage.setItem("simaq_current_user", JSON.stringify(siswa));
-            return { success: true, user: siswa };
+        // Individual Student Account lookup
+        const studentsList = db.getStudents();
+        const foundStudent = studentsList.find(s => 
+          s.nis === email || 
+          s.nis === cleanEmail ||
+          (s.nis && cleanEmail === `${s.nis.toLowerCase()}@al-qamar.sch.id`)
+        );
+
+        if (foundStudent) {
+          const customPw = db.getStudentPassword(foundStudent.nis);
+          // Allow custom password OR default (NIS itself or 'siswa123')
+          const isMatch = customPw 
+            ? (cleanPassword === customPw) 
+            : (cleanPassword === "siswa123" || cleanPassword === foundStudent.nis || cleanPassword === "fatih123" || cleanPassword === "simaq123");
+
+          if (isMatch) {
+            const siswaProfile: Profile = {
+              id: foundStudent.id,
+              role: "siswa",
+              nama: foundStudent.nama_lengkap,
+              email: `${foundStudent.nis}@al-qamar.sch.id`,
+              nip_nisn: foundStudent.nis,
+              hp: foundStudent.hp_ortu,
+              photo_url: foundStudent.jenis_kelamin === "Perempuan"
+                ? "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200"
+                : "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200",
+            };
+            localStorage.setItem("simaq_current_user", JSON.stringify(siswaProfile));
+            return { success: true, user: siswaProfile };
           } else {
-            return { success: false, error: "Kata sandi Siswa salah! Silakan gunakan sandi: 'siswa123'" };
+            return { success: false, error: `Kata sandi Siswa salah! Default kata sandi siswa adalah NISN (${foundStudent.nis}) atau 'siswa123'.` };
           }
         } else {
-          return { success: false, error: "Email/NISN Siswa tidak terdaftar! Silakan gunakan: 'isnain8881@gmail.com'" };
+          return { success: false, error: "Email/NISN Siswa tidak ditemukan atau tidak terdaftar! Hubungi guru untuk meregistrasi biodata Anda." };
         }
       }
     }
@@ -462,15 +603,75 @@ export const db = {
       );
     }
   },
-  deleteSubject: (id: string) => {
+  deleteSubject: async (id: string) => {
+    // 1. Update/Delete in LocalStorage
     const subjs = db.getSubjects().filter(s => s.id !== id);
     localStorage.setItem("simaq_subjects", JSON.stringify(subjs));
 
+    const grds = db.getGrades().filter(g => g.subject_id !== id);
+    localStorage.setItem("simaq_grades", JSON.stringify(grds));
+
+    const atts = db.getAttendance().filter(a => a.subject_id !== id);
+    localStorage.setItem("simaq_attendance", JSON.stringify(atts));
+
+    const mats = db.getMaterials().filter(m => m.subject_id !== id);
+    localStorage.setItem("simaq_materials", JSON.stringify(mats));
+
+    const asgsOfSubject = db.getAssignments().filter(a => a.subject_id === id);
+    const asgIdsOfSubject = new Set(asgsOfSubject.map(a => a.id));
+
+    const asgs = db.getAssignments().filter(a => a.subject_id !== id);
+    localStorage.setItem("simaq_assignments", JSON.stringify(asgs));
+
+    const subms = db.getSubmissions().filter(s => !asgIdsOfSubject.has(s.assignment_id));
+    localStorage.setItem("simaq_submissions", JSON.stringify(subms));
+
+    const jrs = db.getJournals().filter(j => j.subject_id !== id);
+    localStorage.setItem("simaq_journals", JSON.stringify(jrs));
+
+    // 2. Perform deletions on Supabase in correct order to avoid Foreign Key violations
     if (isSupabaseConfigured()) {
-      handleSupabaseResult(
-        supabase!.from("subjects").delete().eq("id", id),
-        "Menghapus mata pelajaran"
-      );
+      try {
+        // Find all assignment IDs of this subject directly on Supabase to ensure clean cascade
+        const { data: dbAsgs, error: asgQueryErr } = await supabase!
+          .from("assignments")
+          .select("id")
+          .eq("subject_id", id);
+        
+        if (asgQueryErr) throw asgQueryErr;
+
+        if (dbAsgs && dbAsgs.length > 0) {
+          const dbAsgIds = dbAsgs.map(a => a.id);
+          const { error: subErr } = await supabase!
+            .from("assignment_submissions")
+            .delete()
+            .in("assignment_id", dbAsgIds);
+          if (subErr) throw subErr;
+        }
+
+        const resAsg = await supabase!.from("assignments").delete().eq("subject_id", id);
+        if (resAsg.error) throw resAsg.error;
+
+        const resGrd = await supabase!.from("grades").delete().eq("subject_id", id);
+        if (resGrd.error) throw resGrd.error;
+
+        const resAtt = await supabase!.from("attendance").delete().eq("subject_id", id);
+        if (resAtt.error) throw resAtt.error;
+
+        const resMat = await supabase!.from("materials").delete().eq("subject_id", id);
+        if (resMat.error) throw resMat.error;
+
+        const resJr = await supabase!.from("teaching_journals").delete().eq("subject_id", id);
+        if (resJr.error) throw resJr.error;
+        
+        const { error: finalErr } = await supabase!.from("subjects").delete().eq("id", id);
+        if (finalErr) throw finalErr;
+      } catch (err: any) {
+        const errMsg = err.message || String(err);
+        const fullError = `Gagal menghapus mata pelajaran dari Supabase. Error: ${errMsg}`;
+        console.error(fullError, err);
+        db.notifyError(fullError);
+      }
     }
   },
 
@@ -492,15 +693,86 @@ export const db = {
       );
     }
   },
-  deleteClass: (id: string) => {
+  deleteClass: async (id: string) => {
+    // 1. Update/Delete in LocalStorage
     const clss = db.getClasses().filter(c => c.id !== id);
     localStorage.setItem("simaq_classes", JSON.stringify(clss));
 
+    const studs = db.getStudents().map(s => {
+      if (s.kelas_id === id) {
+        return { ...s, kelas_id: "" };
+      }
+      return s;
+    });
+    localStorage.setItem("simaq_students", JSON.stringify(studs));
+
+    const grds = db.getGrades().filter(g => g.kelas_id !== id);
+    localStorage.setItem("simaq_grades", JSON.stringify(grds));
+
+    const atts = db.getAttendance().filter(a => a.kelas_id !== id);
+    localStorage.setItem("simaq_attendance", JSON.stringify(atts));
+
+    const mats = db.getMaterials().filter(m => m.kelas_id !== id);
+    localStorage.setItem("simaq_materials", JSON.stringify(mats));
+
+    const asgsOfClass = db.getAssignments().filter(a => a.kelas_id === id);
+    const asgIdsOfClass = new Set(asgsOfClass.map(a => a.id));
+
+    const asgs = db.getAssignments().filter(a => a.kelas_id !== id);
+    localStorage.setItem("simaq_assignments", JSON.stringify(asgs));
+
+    const subms = db.getSubmissions().filter(s => !asgIdsOfClass.has(s.assignment_id));
+    localStorage.setItem("simaq_submissions", JSON.stringify(subms));
+
+    const jrs = db.getJournals().filter(j => j.kelas_id !== id);
+    localStorage.setItem("simaq_journals", JSON.stringify(jrs));
+
+    // 2. Perform deletions on Supabase in correct order to avoid Foreign Key violations
     if (isSupabaseConfigured()) {
-      handleSupabaseResult(
-        supabase!.from("classes").delete().eq("id", id),
-        "Menghapus kelas"
-      );
+      try {
+        // Find all assignment IDs of this class directly on Supabase to ensure clean cascade
+        const { data: dbAsgs, error: asgQueryErr } = await supabase!
+          .from("assignments")
+          .select("id")
+          .eq("kelas_id", id);
+        
+        if (asgQueryErr) throw asgQueryErr;
+
+        if (dbAsgs && dbAsgs.length > 0) {
+          const dbAsgIds = dbAsgs.map(a => a.id);
+          const { error: subErr } = await supabase!
+            .from("assignment_submissions")
+            .delete()
+            .in("assignment_id", dbAsgIds);
+          if (subErr) throw subErr;
+        }
+
+        const resAsg = await supabase!.from("assignments").delete().eq("kelas_id", id);
+        if (resAsg.error) throw resAsg.error;
+
+        const resGrd = await supabase!.from("grades").delete().eq("kelas_id", id);
+        if (resGrd.error) throw resGrd.error;
+
+        const resAtt = await supabase!.from("attendance").delete().eq("kelas_id", id);
+        if (resAtt.error) throw resAtt.error;
+
+        const resMat = await supabase!.from("materials").delete().eq("kelas_id", id);
+        if (resMat.error) throw resMat.error;
+
+        const resJr = await supabase!.from("teaching_journals").delete().eq("kelas_id", id);
+        if (resJr.error) throw resJr.error;
+
+        const resStud = await supabase!.from("students").update({ kelas_id: null }).eq("kelas_id", id);
+        if (resStud.error) throw resStud.error;
+        
+        const { error: finalErr } = await supabase!.from("classes").delete().eq("id", id);
+        if (finalErr) throw finalErr;
+      } catch (err: any) {
+        const errMsg = err.message || String(err);
+        const fullError = `Gagal menghapus kelas dari Supabase. Error: ${errMsg}`;
+        console.error(fullError, err);
+        db.notifyError(fullError);
+      }
     }
   },
 
@@ -532,15 +804,40 @@ export const db = {
       );
     }
   },
-  deleteStudent: (id: string) => {
+  deleteStudent: async (id: string) => {
+    // 1. Update/Delete in LocalStorage
     const studs = db.getStudents().filter(s => s.id !== id);
     localStorage.setItem("simaq_students", JSON.stringify(studs));
 
+    const grds = db.getGrades().filter(g => g.siswa_id !== id);
+    localStorage.setItem("simaq_grades", JSON.stringify(grds));
+
+    const atts = db.getAttendance().filter(a => a.siswa_id !== id);
+    localStorage.setItem("simaq_attendance", JSON.stringify(atts));
+
+    const subms = db.getSubmissions().filter(s => s.siswa_id !== id);
+    localStorage.setItem("simaq_submissions", JSON.stringify(subms));
+
+    // 2. Perform deletions on Supabase in correct order to avoid Foreign Key violations
     if (isSupabaseConfigured()) {
-      handleSupabaseResult(
-        supabase!.from("students").delete().eq("id", id),
-        "Menghapus data siswa"
-      );
+      try {
+        const resGrd = await supabase!.from("grades").delete().eq("siswa_id", id);
+        if (resGrd.error) throw resGrd.error;
+
+        const resAtt = await supabase!.from("attendance").delete().eq("siswa_id", id);
+        if (resAtt.error) throw resAtt.error;
+
+        const resSub = await supabase!.from("assignment_submissions").delete().eq("siswa_id", id);
+        if (resSub.error) throw resSub.error;
+        
+        const { error } = await supabase!.from("students").delete().eq("id", id);
+        if (error) throw error;
+      } catch (err: any) {
+        const errMsg = err.message || String(err);
+        const fullError = `Gagal menghapus data siswa dari Supabase. Error: ${errMsg}`;
+        console.error(fullError, err);
+        db.notifyError(fullError);
+      }
     }
   },
 
@@ -660,15 +957,20 @@ export const db = {
       );
     }
   },
-  deleteMaterial: (id: string) => {
+  deleteMaterial: async (id: string) => {
     const mats = db.getMaterials().filter(m => m.id !== id);
     localStorage.setItem("simaq_materials", JSON.stringify(mats));
 
     if (isSupabaseConfigured()) {
-      handleSupabaseResult(
-        supabase!.from("materials").delete().eq("id", id),
-        "Menghapus materi ajar"
-      );
+      try {
+        const { error } = await supabase!.from("materials").delete().eq("id", id);
+        if (error) throw error;
+      } catch (err: any) {
+        const errMsg = err.message || String(err);
+        const fullError = `Gagal menghapus materi ajar dari Supabase. Error: ${errMsg}`;
+        console.error(fullError, err);
+        db.notifyError(fullError);
+      }
     }
   },
 
@@ -676,7 +978,7 @@ export const db = {
   getAssignments: (): Assignment[] => {
     return JSON.parse(localStorage.getItem("simaq_assignments") || "[]");
   },
-  saveAssignment: (asg: Assignment) => {
+  saveAssignment: async (asg: Assignment) => {
     const asgs = db.getAssignments();
     const index = asgs.findIndex(a => a.id === asg.id);
     if (index >= 0) asgs[index] = asg;
@@ -707,9 +1009,9 @@ export const db = {
     localStorage.setItem("simaq_submissions", JSON.stringify(submissions));
 
     if (isSupabaseConfigured()) {
-      // Save assignment
-      handleSupabaseResult(
-        supabase!.from("assignments").upsert({
+      try {
+        // Save assignment FIRST, wait for database write
+        const { error: asgError } = await supabase!.from("assignments").upsert({
           id: asg.id,
           tanggal: asg.tanggal,
           subject_id: asg.subject_id,
@@ -719,31 +1021,46 @@ export const db = {
           deadline: asg.deadline,
           file_name: asg.file_name,
           file_url: asg.file_url
-        }),
-        "Menyimpan tugas"
-      );
+        });
 
-      // Save initialized submissions
-      if (submsToUpsert.length > 0) {
-        const rows = submsToUpsert.map(s => ({
-          id: s.id,
-          assignment_id: s.assignment_id,
-          siswa_id: s.siswa_id,
-          tanggal_submit: null,
-          file_name: "",
-          file_url: "",
-          status: s.status,
-          nilai: null,
-          catatan_guru: ""
-        }));
-        handleSupabaseResult(
-          supabase!.from("assignment_submissions").upsert(rows),
-          "Inisialisasi pengerjaan tugas"
-        );
+        if (asgError) {
+          const errMsg = asgError.message || String(asgError);
+          const fullError = `Menyimpan tugas gagal. Error: ${errMsg}. Detail: ${asgError.details || ""}`;
+          console.error(fullError, asgError);
+          db.notifyError(fullError);
+          return;
+        }
+
+        // Save initialized submissions only after assignment has been successfully created
+        if (submsToUpsert.length > 0) {
+          const rows = submsToUpsert.map(s => ({
+            id: s.id,
+            assignment_id: s.assignment_id,
+            siswa_id: s.siswa_id,
+            tanggal_submit: null,
+            file_name: "",
+            file_url: "",
+            status: s.status,
+            nilai: null,
+            catatan_guru: ""
+          }));
+          const { error: submError } = await supabase!.from("assignment_submissions").upsert(rows);
+          if (submError) {
+            const errMsg = submError.message || String(submError);
+            const fullError = `Inisialisasi pengerjaan tugas gagal. Error: ${errMsg}. Detail: ${submError.details || ""}`;
+            console.error(fullError, submError);
+            db.notifyError(fullError);
+          }
+        }
+      } catch (err: any) {
+        const fullError = `Menyimpan tugas gagal. Exception: ${err.message || String(err)}`;
+        console.error(fullError, err);
+        db.notifyError(fullError);
       }
     }
   },
-  deleteAssignment: (id: string) => {
+  deleteAssignment: async (id: string) => {
+    // 1. Update/Delete in LocalStorage
     const asgs = db.getAssignments().filter(a => a.id !== id);
     localStorage.setItem("simaq_assignments", JSON.stringify(asgs));
     // also clean submissions
@@ -751,10 +1068,17 @@ export const db = {
     localStorage.setItem("simaq_submissions", JSON.stringify(subms));
 
     if (isSupabaseConfigured()) {
-      handleSupabaseResult(
-        supabase!.from("assignments").delete().eq("id", id),
-        "Menghapus tugas"
-      );
+      try {
+        const resSub = await supabase!.from("assignment_submissions").delete().eq("assignment_id", id);
+        if (resSub.error) throw resSub.error;
+        const { error } = await supabase!.from("assignments").delete().eq("id", id);
+        if (error) throw error;
+      } catch (err: any) {
+        const errMsg = err.message || String(err);
+        const fullError = `Gagal menghapus tugas dari Supabase. Error: ${errMsg}`;
+        console.error(fullError, err);
+        db.notifyError(fullError);
+      }
     }
   },
 
@@ -762,7 +1086,7 @@ export const db = {
   getSubmissions: (): AssignmentSubmission[] => {
     return JSON.parse(localStorage.getItem("simaq_submissions") || "[]");
   },
-  saveSubmission: (sub: AssignmentSubmission) => {
+  saveSubmission: async (sub: AssignmentSubmission) => {
     const subs = db.getSubmissions();
     const index = subs.findIndex(s => s.id === sub.id);
     if (index >= 0) subs[index] = sub;
@@ -770,20 +1094,29 @@ export const db = {
     localStorage.setItem("simaq_submissions", JSON.stringify(subs));
 
     if (isSupabaseConfigured()) {
-      handleSupabaseResult(
-        supabase!.from("assignment_submissions").upsert({
+      try {
+        const { error } = await supabase!.from("assignment_submissions").upsert({
           id: sub.id,
           assignment_id: sub.assignment_id,
           siswa_id: sub.siswa_id,
           tanggal_submit: sub.tanggal_submit || null,
-          file_name: sub.file_name,
-          file_url: sub.file_url,
+          file_name: sub.file_name || "",
+          file_url: sub.file_url || "",
           status: sub.status,
-          nilai: sub.nilai || null,
+          nilai: (sub.nilai !== undefined && sub.nilai !== null) ? sub.nilai : null,
           catatan_guru: sub.catatan_guru || ""
-        }),
-        "Menyimpan pengerjaan tugas"
-      );
+        });
+        if (error) {
+          const errMsg = error.message || String(error);
+          const fullError = `Menyimpan pengerjaan tugas gagal. Error: ${errMsg}. Detail: ${error.details || ""}`;
+          console.error(fullError, error);
+          db.notifyError(fullError);
+        }
+      } catch (err: any) {
+        const fullError = `Menyimpan pengerjaan tugas gagal. Exception: ${err.message || String(err)}`;
+        console.error(fullError, err);
+        db.notifyError(fullError);
+      }
     }
   },
 
@@ -817,15 +1150,20 @@ export const db = {
       );
     }
   },
-  deleteJournal: (id: string) => {
+  deleteJournal: async (id: string) => {
     const jrnls = db.getJournals().filter(j => j.id !== id);
     localStorage.setItem("simaq_journals", JSON.stringify(jrnls));
 
     if (isSupabaseConfigured()) {
-      handleSupabaseResult(
-        supabase!.from("teaching_journals").delete().eq("id", id),
-        "Menghapus jurnal mengajar"
-      );
+      try {
+        const { error } = await supabase!.from("teaching_journals").delete().eq("id", id);
+        if (error) throw error;
+      } catch (err: any) {
+        const errMsg = err.message || String(err);
+        const fullError = `Gagal menghapus jurnal mengajar dari Supabase. Error: ${errMsg}`;
+        console.error(fullError, err);
+        db.notifyError(fullError);
+      }
     }
   },
 
@@ -852,142 +1190,173 @@ export const db = {
       }
     };
 
+    // Check if this is the first sync on this device/browser
+    const hasSyncedFlag = localStorage.getItem("simaq_has_synced_supabase") === "true";
+    let isPullOnlyOverride = false;
+    
+    if (!hasSyncedFlag) {
+      try {
+        // Query to check if Supabase already has real subjects or classes created by other devices
+        const { data: testSubjects, error: checkErr1 } = await supabase!.from("subjects").select("id").limit(1);
+        const { data: testClasses, error: checkErr2 } = await supabase!.from("classes").select("id").limit(1);
+        
+        if (!checkErr1 && !checkErr2) {
+          const remoteHasData = (testSubjects && testSubjects.length > 0) || (testClasses && testClasses.length > 0);
+          if (remoteHasData) {
+            isPullOnlyOverride = true;
+            console.log("Supabase already contains remote data. Overwriting local mock data to prevent duplicate/stale state upload.");
+          }
+        }
+      } catch (e) {
+        console.warn("Could not test remote database presence", e);
+      }
+    }
+
+    const syncTable = async (
+      tableName: string,
+      localKey: string,
+      label: string,
+      sanitizeBeforePush?: (item: any) => any | null
+    ): Promise<any[]> => {
+      // 1. Ambil data dari Supabase
+      const { data: remote, error: fetchErr } = await supabase!.from(tableName).select("*");
+      checkSyncError(fetchErr, label);
+
+      // 2. If we need to pull and overwrite entirely (first sync on device with existing data)
+      if (isPullOnlyOverride) {
+        const remoteList = remote || [];
+        localStorage.setItem(localKey, JSON.stringify(remoteList));
+        pulled.push(label);
+        return remoteList;
+      }
+
+      // 3. Ambil data dari Local Storage
+      const localRaw = localStorage.getItem(localKey);
+      const local: any[] = localRaw ? JSON.parse(localRaw) : [];
+
+      // 4. Gabungkan data (Merge)
+      // Gunakan ID unik untuk memetakan item dari remote
+      const remoteMap = new Map<string, any>();
+      if (remote) {
+        remote.forEach((item: any) => remoteMap.set(item.id, item));
+      }
+
+      const merged: any[] = [...(remote || [])];
+      const toPush: any[] = [];
+
+      // Cari data lokal yang belum ada di remote untuk di-push
+      for (const item of local) {
+        if (!remoteMap.has(item.id)) {
+          let itemToPush = { ...item };
+          if (sanitizeBeforePush) {
+            const sanitized = sanitizeBeforePush(itemToPush);
+            if (sanitized === null) {
+              continue; // Skip pushing this item and omit from merged (cleanup orphaned data)
+            }
+            itemToPush = sanitized;
+          }
+
+          // Bersihkan string kosong ("") menjadi null untuk menghindari kesalahan konversi tipe data PostgreSQL (seperti timestamp, date, numeric, dll)
+          Object.keys(itemToPush).forEach((key) => {
+            if (itemToPush[key] === "") {
+              itemToPush[key] = null;
+            }
+          });
+
+          merged.push(itemToPush);
+          toPush.push(itemToPush);
+        }
+      }
+
+      // 5. Simpan hasil gabungan kembali ke Local Storage
+      localStorage.setItem(localKey, JSON.stringify(merged));
+
+      // 6. Upload data baru dari lokal ke Supabase
+      if (toPush.length > 0) {
+        const { error: upsertErr } = await supabase!.from(tableName).upsert(toPush);
+        checkSyncError(upsertErr, `${label} (Push)`);
+        pushed.push(label);
+      }
+
+      // 7. Cek apakah ada data dari remote yang baru ditarik ke lokal
+      const localMap = new Map<string, any>();
+      local.forEach((item: any) => localMap.set(item.id, item));
+
+      const hasPulledItems = remote && remote.some((item: any) => !localMap.has(item.id));
+      if (hasPulledItems) {
+        pulled.push(label);
+      }
+
+      return merged;
+    };
+
     try {
-      // 1. Subjects
-      const { data: sb, error: sbErr } = await supabase!.from("subjects").select("*");
-      checkSyncError(sbErr, "Mata Pelajaran");
-      if (sb && sb.length > 0) {
-        localStorage.setItem("simaq_subjects", JSON.stringify(sb));
-        pulled.push("Mata Pelajaran");
-      } else {
-        const local = db.getSubjects();
-        if (local.length > 0) {
-          const { error: upsertErr } = await supabase!.from("subjects").upsert(local);
-          checkSyncError(upsertErr, "Mata Pelajaran (Push)");
-          pushed.push("Mata Pelajaran");
-        }
-      }
+      // Jalankan sinkronisasi secara teratur berurutan sesuai relasi Foreign Key:
+      
+      // 1. Mata Pelajaran (Tanpa dependensi)
+      const subjects = await syncTable("subjects", "simaq_subjects", "Mata Pelajaran");
+      const validSubjectIds = new Set(subjects.map(s => s.id));
 
-      // 2. Classes
-      const { data: cl, error: clErr } = await supabase!.from("classes").select("*");
-      checkSyncError(clErr, "Kelas");
-      if (cl && cl.length > 0) {
-        localStorage.setItem("simaq_classes", JSON.stringify(cl));
-        pulled.push("Kelas");
-      } else {
-        const local = db.getClasses();
-        if (local.length > 0) {
-          const { error: upsertErr } = await supabase!.from("classes").upsert(local);
-          checkSyncError(upsertErr, "Kelas (Push)");
-          pushed.push("Kelas");
-        }
-      }
+      // 2. Kelas (Tanpa dependensi)
+      const classes = await syncTable("classes", "simaq_classes", "Kelas");
+      const validClassIds = new Set(classes.map(c => c.id));
 
-      // 3. Students
-      const { data: st, error: stErr } = await supabase!.from("students").select("*");
-      checkSyncError(stErr, "Siswa");
-      if (st && st.length > 0) {
-        localStorage.setItem("simaq_students", JSON.stringify(st));
-        pulled.push("Siswa");
-      } else {
-        const local = db.getStudents();
-        if (local.length > 0) {
-          const { error: upsertErr } = await supabase!.from("students").upsert(local);
-          checkSyncError(upsertErr, "Siswa (Push)");
-          pushed.push("Siswa");
+      // 3. Siswa (Tergantung pada tabel Kelas)
+      const students = await syncTable("students", "simaq_students", "Siswa", (stud) => {
+        if (!stud.kelas_id || !validClassIds.has(stud.kelas_id)) {
+          stud.kelas_id = null; // Set to null if class reference is invalid or missing
         }
-      }
+        return stud;
+      });
+      const validStudentIds = new Set(students.map(s => s.id));
 
-      // 4. Grades
-      const { data: gd, error: gdErr } = await supabase!.from("grades").select("*");
-      checkSyncError(gdErr, "Nilai");
-      if (gd && gd.length > 0) {
-        localStorage.setItem("simaq_grades", JSON.stringify(gd));
-        pulled.push("Nilai");
-      } else {
-        const local = db.getGrades();
-        if (local.length > 0) {
-          const { error: upsertErr } = await supabase!.from("grades").upsert(local);
-          checkSyncError(upsertErr, "Nilai (Push)");
-          pushed.push("Nilai");
-        }
-      }
+      // 4. Nilai (Tergantung pada Siswa, Kelas, Mata Pelajaran)
+      await syncTable("grades", "simaq_grades", "Nilai", (grade) => {
+        if (!grade.siswa_id || !validStudentIds.has(grade.siswa_id)) return null;
+        if (!grade.kelas_id || !validClassIds.has(grade.kelas_id)) return null;
+        if (!grade.subject_id || !validSubjectIds.has(grade.subject_id)) return null;
+        return grade;
+      });
 
-      // 5. Attendance
-      const { data: at, error: atErr } = await supabase!.from("attendance").select("*");
-      checkSyncError(atErr, "Absensi");
-      if (at && at.length > 0) {
-        localStorage.setItem("simaq_attendance", JSON.stringify(at));
-        pulled.push("Absensi");
-      } else {
-        const local = db.getAttendance();
-        if (local.length > 0) {
-          const { error: upsertErr } = await supabase!.from("attendance").upsert(local);
-          checkSyncError(upsertErr, "Absensi (Push)");
-          pushed.push("Absensi");
-        }
-      }
+      // 5. Absensi (Tergantung pada Siswa, Kelas, Mata Pelajaran)
+      await syncTable("attendance", "simaq_attendance", "Absensi", (att) => {
+        if (!att.siswa_id || !validStudentIds.has(att.siswa_id)) return null;
+        if (!att.kelas_id || !validClassIds.has(att.kelas_id)) return null;
+        if (!att.subject_id || !validSubjectIds.has(att.subject_id)) return null;
+        return att;
+      });
 
-      // 6. Materials
-      const { data: mt, error: mtErr } = await supabase!.from("materials").select("*");
-      checkSyncError(mtErr, "Materi Ajar");
-      if (mt && mt.length > 0) {
-        localStorage.setItem("simaq_materials", JSON.stringify(mt));
-        pulled.push("Materi Ajar");
-      } else {
-        const local = db.getMaterials();
-        if (local.length > 0) {
-          const { error: upsertErr } = await supabase!.from("materials").upsert(local);
-          checkSyncError(upsertErr, "Materi Ajar (Push)");
-          pushed.push("Materi Ajar");
-        }
-      }
+      // 6. Materi Ajar (Tergantung pada Mata Pelajaran, Kelas)
+      await syncTable("materials", "simaq_materials", "Materi Ajar", (mat) => {
+        if (!mat.subject_id || !validSubjectIds.has(mat.subject_id)) return null;
+        if (!mat.kelas_id || !validClassIds.has(mat.kelas_id)) return null;
+        return mat;
+      });
 
-      // 7. Assignments
-      const { data: as, error: asErr } = await supabase!.from("assignments").select("*");
-      checkSyncError(asErr, "Penugasan");
-      if (as && as.length > 0) {
-        localStorage.setItem("simaq_assignments", JSON.stringify(as));
-        pulled.push("Penugasan");
-      } else {
-        const local = db.getAssignments();
-        if (local.length > 0) {
-          const { error: upsertErr } = await supabase!.from("assignments").upsert(local);
-          checkSyncError(upsertErr, "Penugasan (Push)");
-          pushed.push("Penugasan");
-        }
-      }
+      // 7. Penugasan (Tergantung pada Mata Pelajaran, Kelas)
+      const assignments = await syncTable("assignments", "simaq_assignments", "Penugasan", (asg) => {
+        if (!asg.subject_id || !validSubjectIds.has(asg.subject_id)) return null;
+        if (!asg.kelas_id || !validClassIds.has(asg.kelas_id)) return null;
+        return asg;
+      });
+      const validAssignmentIds = new Set(assignments.map(a => a.id));
 
-      // 8. Submissions
-      const { data: su, error: suErr } = await supabase!.from("assignment_submissions").select("*");
-      checkSyncError(suErr, "Pengerjaan Tugas");
-      if (su && su.length > 0) {
-        localStorage.setItem("simaq_submissions", JSON.stringify(su));
-        pulled.push("Pengerjaan Tugas");
-      } else {
-        const local = db.getSubmissions();
-        if (local.length > 0) {
-          const { error: upsertErr } = await supabase!.from("assignment_submissions").upsert(local);
-          checkSyncError(upsertErr, "Pengerjaan Tugas (Push)");
-          pushed.push("Pengerjaan Tugas");
-        }
-      }
+      // 8. Pengerjaan Tugas (Tergantung pada Penugasan, Siswa)
+      await syncTable("assignment_submissions", "simaq_submissions", "Pengerjaan Tugas", (subm) => {
+        if (!subm.assignment_id || !validAssignmentIds.has(subm.assignment_id)) return null;
+        if (!subm.siswa_id || !validStudentIds.has(subm.siswa_id)) return null;
+        return subm;
+      });
 
-      // 9. Teaching Journals
-      const { data: jr, error: jrErr } = await supabase!.from("teaching_journals").select("*");
-      checkSyncError(jrErr, "Jurnal Mengajar");
-      if (jr && jr.length > 0) {
-        localStorage.setItem("simaq_journals", JSON.stringify(jr));
-        pulled.push("Jurnal Mengajar");
-      } else {
-        const local = db.getJournals();
-        if (local.length > 0) {
-          const { error: upsertErr } = await supabase!.from("teaching_journals").upsert(local);
-          checkSyncError(upsertErr, "Jurnal Mengajar (Push)");
-          pushed.push("Jurnal Mengajar");
-        }
-      }
+      // 9. Jurnal Mengajar (Tergantung pada Mata Pelajaran, Kelas)
+      await syncTable("teaching_journals", "simaq_journals", "Jurnal Mengajar", (jr) => {
+        if (!jr.subject_id || !validSubjectIds.has(jr.subject_id)) return null;
+        if (!jr.kelas_id || !validClassIds.has(jr.kelas_id)) return null;
+        return jr;
+      });
 
+      // Set the sync flag so future syncs are fully bidirectional
+      localStorage.setItem("simaq_has_synced_supabase", "true");
       return { success: true, pushed, pulled };
     } catch (err: any) {
       console.error("Error in bidirectional sync:", err);
