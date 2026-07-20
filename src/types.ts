@@ -113,3 +113,14 @@ export interface TeachingJournal {
   lampiran_url?: string;
   created_at?: string;
 }
+
+export interface TeachingSchedule {
+  id: string;
+  subject_id: string;
+  kelas_id: string;
+  hari: "Senin" | "Selasa" | "Rabu" | "Kamis" | "Jumat" | "Sabtu" | "Minggu";
+  jam_mulai: string;
+  jam_selesai: string;
+  ruangan?: string;
+  created_at?: string;
+}

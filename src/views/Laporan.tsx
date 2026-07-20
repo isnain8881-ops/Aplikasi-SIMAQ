@@ -2,10 +2,12 @@ import React, { useState } from "react";
 import { BarChart3, FileDown, Printer, Filter, Calendar, Award, CheckSquare, BookOpenCheck } from "lucide-react";
 import { db } from "../utils/db";
 import { Subject, ClassRoom, Student } from "../types";
+import logoAlqamar from "../assets/images/logo_alqamar.jpg";
 
 export const ReportsView: React.FC = () => {
   const subjects = db.getSubjects();
   const classes = db.getClasses();
+  const activeSemester = db.getActiveSemester();
 
   const [activeReport, setActiveReport] = useState<"nilai" | "absensi" | "jurnal">("nilai");
 
@@ -202,17 +204,22 @@ export const ReportsView: React.FC = () => {
       {/* Render Laporan Content sheet */}
       <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm p-6 printable-area">
         
-        {/* Printable report header */}
-        <div className="text-center border-b-2 border-double border-gray-300 dark:border-gray-800 pb-5 mb-6">
-          <h1 className="text-xl font-black text-gray-900 dark:text-white">MADRASAH ALIYAH AL-QAMAR</h1>
-          <p className="text-xs text-gray-400 font-mono tracking-wider">Sistem Informasi Manajemen Madrasah (SIMAQ)</p>
-          <p className="text-[10px] text-gray-400 mt-1">Alamat: Kampus Pendidikan Al-Qamar, Sulawesi Selatan • HP: 081241392708</p>
+        {/* Printable report header (Kop Surat) */}
+        <div className="flex items-center gap-4 border-b-4 border-double border-gray-900 dark:border-gray-100 pb-5 mb-6">
+          <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-full border border-gray-200 dark:border-gray-700 flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+            <img src={logoAlqamar} alt="Logo Al-Qamar" className="w-14 h-14 object-contain" referrerPolicy="no-referrer" />
+          </div>
+          <div className="text-center flex-1 pr-16">
+            <h1 className="text-xl font-black text-gray-900 dark:text-white tracking-wide">MADRASAH ALIYAH AL-QAMAR</h1>
+            <p className="text-xs font-bold text-gray-600 dark:text-gray-300 font-mono tracking-wider">Sistem Informasi Manajemen Aliyah Al-Qamar (SIMAQ)</p>
+            <p className="text-[10px] text-gray-400 mt-1">Alamat: Abd. Baki Dg. Nyau. Bajeng, Kab. Takalar, Sulawesi Selatan • HP: 081241392708</p>
+          </div>
         </div>
 
         {activeReport === "nilai" && (
           <div className="space-y-4 text-xs">
             <div className="flex justify-between items-center text-xs font-semibold text-gray-500 mb-2">
-              <span>LAPORAN NILAI HASIL BELAJAR</span>
+              <span>LAPORAN NILAI HASIL BELAJAR - SEMESTER {activeSemester.toUpperCase()}</span>
               <span>Mapel: {subjects.find(s => s.id === selectedSubject)?.nama || "Semua"} | Kelas: {classes.find(c => c.id === selectedClass)?.nama || "Semua"}</span>
             </div>
 
@@ -253,7 +260,7 @@ export const ReportsView: React.FC = () => {
         {activeReport === "absensi" && (
           <div className="space-y-4 text-xs">
             <div className="flex justify-between items-center text-xs font-semibold text-gray-500 mb-2">
-              <span>LAPORAN REKAPITULASI PRESENSI</span>
+              <span>LAPORAN REKAPITULASI PRESENSI - SEMESTER {activeSemester.toUpperCase()}</span>
               <span>Mapel: {subjects.find(s => s.id === selectedSubject)?.nama || "Semua"} | Kelas: {classes.find(c => c.id === selectedClass)?.nama || "Semua"}</span>
             </div>
 
@@ -298,7 +305,7 @@ export const ReportsView: React.FC = () => {
         {activeReport === "jurnal" && (
           <div className="space-y-4 text-xs">
             <div className="flex justify-between items-center text-xs font-semibold text-gray-500 mb-2">
-              <span>LAPORAN JURNAL REKAP AGENDA MENGAJAR</span>
+              <span>LAPORAN JURNAL REKAP AGENDA MENGAJAR - SEMESTER {activeSemester.toUpperCase()}</span>
               <span>Periode: {startDate} s/d {endDate}</span>
             </div>
 
@@ -339,6 +346,24 @@ export const ReportsView: React.FC = () => {
             </table>
           </div>
         )}
+
+        {/* Tanda Tangan / Signature Block */}
+        <div className="mt-12 grid grid-cols-2 gap-8 text-xs text-center sign-block border-t border-dashed border-gray-200 dark:border-gray-800 pt-8">
+          <div>
+            <p className="text-gray-500 dark:text-gray-400">Mengetahui,</p>
+            <p className="font-bold text-gray-900 dark:text-white mt-1">Kepala Madrasah Aliyah Al-Qamar</p>
+            <div className="h-20"></div>
+            <p className="font-bold text-gray-900 dark:text-white underline">Amaluddin, S.Pd.I., M.A</p>
+            <p className="text-[10px] text-gray-400 font-mono">NUPTK. 2538760662200023 -</p>
+          </div>
+          <div>
+            <p className="text-gray-500 dark:text-gray-400">Takalar, {new Date().toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <p className="font-bold text-gray-900 dark:text-white mt-1">Wali Kelas / Guru Pengampu</p>
+            <div className="h-20"></div>
+            <p className="font-bold text-gray-900 dark:text-white underline">......................................................</p>
+            <p className="text-[10px] text-gray-400 font-mono">NIP / NUPTK. -</p>
+          </div>
+        </div>
 
       </div>
     </div>

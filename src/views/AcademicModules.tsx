@@ -366,6 +366,20 @@ export const AttendanceModule: React.FC = () => {
     }));
 
     db.saveAttendanceBulk(payload);
+
+    // Synchronize to teaching journal if exists for the same subject, class, and date
+    const presentCount = payload.filter(p => p.status === "Hadir").length;
+    const journalsList = db.getJournals();
+    const matchingJournal = journalsList.find(j => 
+      j.tanggal === tanggal && 
+      j.subject_id === selectedSubject && 
+      j.kelas_id === selectedClass
+    );
+    if (matchingJournal) {
+      matchingJournal.jumlah_hadir = presentCount;
+      db.saveJournal(matchingJournal);
+    }
+
     setStatusMsg(`Laporan presensi tanggal ${new Date(tanggal).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })} berhasil dicatat ke pangkalan data!`);
     setTimeout(() => setStatusMsg(""), 4000);
   };
@@ -706,6 +720,28 @@ export const TeachingJournalModule: React.FC = () => {
   const [lampiranName, setLampiranName] = useState("");
   const [lampiranUrl, setLampiranUrl] = useState("");
 
+  // Auto-synchronize jumlahHadir with attendance count from database
+  useEffect(() => {
+    if (isFormOpen && selectedClass && selectedSubject && tanggal) {
+      const classStudents = db.getStudents().filter(s => s.kelas_id === selectedClass);
+      const allAttendance = db.getAttendance();
+      
+      let presentCount = 0;
+      classStudents.forEach(s => {
+        const record = allAttendance.find(a => 
+          a.siswa_id === s.id && 
+          a.subject_id === selectedSubject && 
+          a.tanggal === tanggal
+        );
+        const status = record?.status || "Hadir"; // default to Hadir if not logged
+        if (status === "Hadir") {
+          presentCount++;
+        }
+      });
+      setJumlahHadir(presentCount.toString());
+    }
+  }, [selectedClass, selectedSubject, tanggal, isFormOpen]);
+
   const handleOpenAdd = () => {
     setTanggal(new Date().toISOString().split("T")[0]);
     setSelectedSubject(subjects[0]?.id || "");
@@ -853,6 +889,9 @@ export const TeachingJournalModule: React.FC = () => {
                 placeholder="Jumlah siswa hadir"
                 className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white font-mono"
               />
+              <p className="text-[10px] text-gray-400 mt-1">
+                * Otomatis disinkronkan dari data absensi siswa kelas ini.
+              </p>
             </div>
             <div className="md:col-span-3">
               <label className="block text-gray-500 dark:text-gray-400 mb-1.5 font-semibold">Rangkuman Materi Pembelajaran</label>

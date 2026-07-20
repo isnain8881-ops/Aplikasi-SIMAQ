@@ -223,6 +223,13 @@ export const ClassesModule: React.FC = () => {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus SEMUA kelas? Tindakan ini juga akan mengosongkan relasi jadwal mengajar, absensi, tugas, jurnal, dan penempatan kelas para siswa.")) {
+      await db.deleteAllClasses();
+      setClasses([]);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white dark:bg-[#1f202e] p-5 rounded-2xl border border-gray-100 dark:border-gray-800">
@@ -230,13 +237,24 @@ export const ClassesModule: React.FC = () => {
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">Daftar Kelas</h2>
           <p className="text-xs text-gray-400">Kelola pembagian kelas dan tahun ajaran siswa.</p>
         </div>
-        <button
-          onClick={handleOpenAdd}
-          className="px-4 py-2 bg-[#696cff] hover:bg-[#5f61e6] text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-md shadow-[#696cff]20"
-        >
-          <Plus size={16} />
-          Tambah Kelas
-        </button>
+        <div className="flex items-center gap-2">
+          {classes.length > 0 && (
+            <button
+              onClick={handleDeleteAll}
+              className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-md shadow-rose-500/10 cursor-pointer"
+            >
+              <Trash2 size={16} />
+              Kosongkan Kelas
+            </button>
+          )}
+          <button
+            onClick={handleOpenAdd}
+            className="px-4 py-2 bg-[#696cff] hover:bg-[#5f61e6] text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-md shadow-[#696cff]20"
+          >
+            <Plus size={16} />
+            Tambah Kelas
+          </button>
+        </div>
       </div>
 
       {isFormOpen && (
@@ -434,6 +452,13 @@ export const StudentsModule: React.FC = () => {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus SELURUH nama siswa yang terdaftar dalam aplikasi? Tindakan ini juga akan mengosongkan data nilai, kehadiran, dan pengerjaan tugas para siswa.")) {
+      await (db as any).deleteAllStudents();
+      setStudents([]);
+    }
+  };
+
   const handleResetPassword = (student: Student) => {
     const confirm = window.confirm(`Reset kata sandi siswa "${student.nama_lengkap}" kembali ke default ("siswa123" atau NISN)?`);
     if (confirm) {
@@ -474,13 +499,37 @@ export const StudentsModule: React.FC = () => {
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">Data Induk Siswa</h2>
           <p className="text-xs text-gray-400">Pengelolaan profil, biodata, dan kelas siswa Madrasah Aliyah.</p>
         </div>
-        <button
-          onClick={handleOpenAdd}
-          className="px-4 py-2 bg-[#696cff] hover:bg-[#5f61e6] text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-md self-start sm:self-auto"
-        >
-          <Plus size={16} />
-          Tambah Siswa Baru
-        </button>
+        <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          {students.length > 0 && (
+            <button
+              onClick={handleDeleteAll}
+              className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-md cursor-pointer"
+            >
+              <Trash2 size={15} />
+              Kosongkan Semua Siswa
+            </button>
+          )}
+          <button
+            onClick={() => {
+              if (window.confirm("Apakah Anda yakin ingin mereset semua nama siswa kembali ke daftar bawaan simulasi? Tindakan ini akan mengembalikan data awal.")) {
+                db.resetStudents();
+                setStudents(db.getStudents());
+                alert("Semua nama siswa berhasil direset ke daftar bawaan!");
+              }
+            }}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-md cursor-pointer"
+          >
+            <RefreshCw size={15} />
+            Reset Nama Siswa
+          </button>
+          <button
+            onClick={handleOpenAdd}
+            className="px-4 py-2 bg-[#696cff] hover:bg-[#5f61e6] text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-md cursor-pointer"
+          >
+            <Plus size={16} />
+            Tambah Siswa Baru
+          </button>
+        </div>
       </div>
 
       {/* CRUD Form overlay or block */}

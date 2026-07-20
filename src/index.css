@@ -4,3 +4,87 @@
   /* Replace white color with a high-contrast elegant mint-sage color */
   --color-white: #e4efe8;
 }
+
+@media print {
+  /* Hide navbar, sidebar, buttons, and other utility elements */
+  aside, nav, footer, button, select, input, h2, .footer, .navbar, .sidebar, .bg-gray-100, .shadow-sm.space-y-4, .fixed, .SupabaseHelpModal, label, [role="tabpanel"] > div:first-child {
+    display: none !important;
+  }
+  
+  /* Make sure background is white and text is dark for the printable page */
+  html, body {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+    font-size: 11pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Reset main viewport scroll and padding constraints */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+  }
+
+  /* Expand printable paper container to full width and styled for print */
+  .printable-area {
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    display: block !important;
+  }
+
+  /* Force table headers and cells to show crisp borders and dark text */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    margin-top: 15px !important;
+    margin-bottom: 15px !important;
+  }
+
+  th {
+    background-color: #f3f4f6 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    border: 1px solid #111111 !important;
+    color: #000000 !important;
+    font-weight: bold !important;
+    padding: 8px 10px !important;
+  }
+
+  td {
+    border: 1px solid #222222 !important;
+    color: #000000 !important;
+    padding: 8px 10px !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+  }
+
+  /* Ensure text is high-contrast */
+  .text-gray-900, .text-gray-500, .text-gray-400, .text-emerald-500, .text-blue-500, .text-amber-500, .text-red-500, .text-indigo-600 {
+    color: #000000 !important;
+  }
+
+  .font-bold {
+    font-weight: bold !important;
+  }
+  
+  /* Ensure correct formatting of signature blocks */
+  .sign-block {
+    display: grid !important;
+    grid-template-cols: 1fr 1fr !important;
+    gap: 40px !important;
+    margin-top: 40px !important;
+    border-top: 1px dashed #666 !important;
+    padding-top: 20px !important;
+  }
+}

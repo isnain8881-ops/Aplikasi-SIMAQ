@@ -1,15 +1,40 @@
 import React, { useState, useEffect } from "react";
-import { ClipboardList, CheckCircle2, Clock, Eye, Send, Download, FileText, Calendar, ShieldCheck, HelpCircle } from "lucide-react";
+import { ClipboardList, CheckCircle2, Clock, Eye, Send, Download, FileText, Calendar, ShieldCheck, HelpCircle, BookOpen, Award, Star, TrendingUp } from "lucide-react";
 import { db } from "../utils/db";
-import { Student, Assignment, AssignmentSubmission, Subject } from "../types";
+import { Student, Assignment, AssignmentSubmission, Subject, Material } from "../types";
 
 interface StudentProps {
   currentStudent: Student;
+  initialTab?: "attendance" | "assignments" | "materials" | "grades";
 }
 
-export const StudentModules: React.FC<StudentProps> = ({ currentStudent }) => {
-  const [activeTab, setActiveTab] = useState<"attendance" | "assignments">("assignments");
+export const StudentModules: React.FC<StudentProps> = ({ currentStudent, initialTab }) => {
+  const [activeTab, setActiveTab] = useState<"attendance" | "assignments" | "materials" | "grades">(initialTab || "assignments");
+  const [materials, setMaterials] = useState<Material[]>([]);
   const subjects = db.getSubjects();
+
+  // 0. Grades computed state
+  const studentGrades = db.getGrades().filter(g => g.siswa_id === currentStudent.id);
+  const gradedSubjectsCount = studentGrades.length;
+  const averageGrade = gradedSubjectsCount > 0
+    ? Math.round((studentGrades.reduce((sum, g) => sum + g.nilai_akhir, 0) / gradedSubjectsCount) * 10) / 10
+    : 0;
+  const highestGrade = gradedSubjectsCount > 0
+    ? Math.max(...studentGrades.map(g => g.nilai_akhir))
+    : 0;
+
+  const getOverallPredicate = (avg: number): string => {
+    if (avg >= 85) return "Sangat Baik (A)";
+    if (avg >= 75) return "Baik (B)";
+    if (avg >= 60) return "Cukup (C)";
+    return "Perlu Bimbingan (D)";
+  };
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // 1. Attendance state
   const attendanceRecords = db.getAttendance().filter(a => a.siswa_id === currentStudent.id);
@@ -63,6 +88,10 @@ export const StudentModules: React.FC<StudentProps> = ({ currentStudent }) => {
     }
 
     setSubmissions(currentStudentSubs);
+
+    // Load learning materials for class
+    const classMaterials = db.getMaterials().filter(m => m.kelas_id === currentStudent.kelas_id);
+    setMaterials(classMaterials);
   };
 
   useEffect(() => {
@@ -117,18 +146,34 @@ export const StudentModules: React.FC<StudentProps> = ({ currentStudent }) => {
           <p className="text-xs text-gray-400">Halo {currentStudent.nama_lengkap}, Anda berada di ruang belajar Kelas {db.getClasses().find(c => c.id === currentStudent.kelas_id)?.nama}.</p>
         </div>
 
-        <div className="flex bg-gray-100 dark:bg-slate-900 rounded-xl p-1 text-xs">
+        <div className="flex bg-gray-100 dark:bg-slate-900 rounded-xl p-1 text-xs gap-1 overflow-x-auto max-w-full">
+          <button
+            onClick={() => setActiveTab("materials")}
+            className={`px-3 py-2 font-bold rounded-lg transition-all flex-shrink-0 ${
+              activeTab === "materials" ? "bg-white dark:bg-[#1f202e] text-[#696cff] shadow-sm" : "text-gray-500"
+            }`}
+          >
+            Materi Belajar
+          </button>
           <button
             onClick={() => setActiveTab("assignments")}
-            className={`px-4 py-2 font-bold rounded-lg transition-all ${
+            className={`px-3 py-2 font-bold rounded-lg transition-all flex-shrink-0 ${
               activeTab === "assignments" ? "bg-white dark:bg-[#1f202e] text-[#696cff] shadow-sm" : "text-gray-500"
             }`}
           >
             Tugas & Homework
           </button>
           <button
+            onClick={() => setActiveTab("grades")}
+            className={`px-3 py-2 font-bold rounded-lg transition-all flex-shrink-0 ${
+              activeTab === "grades" ? "bg-white dark:bg-[#1f202e] text-[#696cff] shadow-sm" : "text-gray-500"
+            }`}
+          >
+            Hasil Penilaian
+          </button>
+          <button
             onClick={() => setActiveTab("attendance")}
-            className={`px-4 py-2 font-bold rounded-lg transition-all ${
+            className={`px-3 py-2 font-bold rounded-lg transition-all flex-shrink-0 ${
               activeTab === "attendance" ? "bg-white dark:bg-[#1f202e] text-[#696cff] shadow-sm" : "text-gray-500"
             }`}
           >
@@ -275,7 +320,7 @@ export const StudentModules: React.FC<StudentProps> = ({ currentStudent }) => {
             </table>
           </div>
         </div>
-      ) : (
+      ) : activeTab === "assignments" ? (
         /* HOMEWORK / ASSIGNMENTS TABS */
         <div className="space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Modul Daftar Tugas Akademik Aktif</h3>
@@ -373,6 +418,301 @@ export const StudentModules: React.FC<StudentProps> = ({ currentStudent }) => {
               })}
             </div>
           )}
+        </div>
+      ) : activeTab === "materials" ? (
+        /* LEARNING MATERIALS TAB */
+        <div className="space-y-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Modul Materi Pembelajaran Kelas</h3>
+          
+          {materials.length === 0 ? (
+            <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 rounded-2xl p-8 text-center text-xs text-gray-400">
+              Belum ada materi pembelajaran yang diunggah untuk kelas Anda saat ini.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {materials.map(m => {
+                const mapel = subjects.find(s => s.id === m.subject_id);
+
+                return (
+                  <div key={m.id} className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 rounded-2xl p-5 flex flex-col justify-between hover:shadow-md transition-all">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <span className="text-[10px] font-bold text-[#696cff] bg-[#696cff]/10 px-2.5 py-0.5 rounded">
+                          {mapel?.nama || "Mata Pelajaran"}
+                        </span>
+                        
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/20 text-blue-500">
+                          {m.file_type || "PDF"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-start gap-3">
+                        <div className="p-3 rounded-xl flex-shrink-0 bg-blue-50 dark:bg-blue-950/20 text-blue-500">
+                          <BookOpen size={22} />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-gray-800 dark:text-white leading-snug">{m.materi_pembelajaran}</h4>
+                          <p className="text-[10px] text-gray-400 mt-1 leading-relaxed line-clamp-3">Metode: {m.metode_pembelajaran}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-800/40 flex justify-between items-center text-[10px]">
+                      <div className="flex flex-col font-mono text-gray-400">
+                        <span className="flex items-center gap-1 text-[9px]">
+                          <Clock size={10} />
+                          {m.jam_pelajaran}
+                        </span>
+                        <span className="flex items-center gap-1 text-[9px] mt-0.5">
+                          <Calendar size={10} />
+                          {new Date(m.tanggal).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+
+                      <div className="flex gap-2">
+                        {m.file_name && (
+                          <a
+                            href={m.file_url || "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1.5 rounded-lg border border-gray-150 dark:border-gray-800 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center gap-1 transition-colors"
+                          >
+                            <Download size={11} />
+                            <span>Unduh Materi</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* GRADES TAB (Hasil Penilaian) */
+        <div className="space-y-6 animate-fade-in">
+          {/* Header Metric Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            {/* Rata-Rata Nilai */}
+            <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 p-5 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-[#696cff]/5 rounded-bl-full" />
+              <span className="text-[10px] uppercase font-extrabold text-[#696cff] tracking-wider">Rata-Rata Nilai</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-3xl font-black text-[#696cff] font-mono">
+                  {averageGrade > 0 ? averageGrade : "-"}
+                </span>
+                {averageGrade > 0 && (
+                  <span className="text-[10px] font-bold text-emerald-500 flex items-center gap-0.5">
+                    <TrendingUp size={12} /> Sangat Baik
+                  </span>
+                )}
+              </div>
+              <div className="w-full bg-gray-100 dark:bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
+                <div className="bg-[#696cff] h-full rounded-full transition-all duration-500" style={{ width: `${averageGrade}%` }} />
+              </div>
+            </div>
+
+            {/* Predikat Umum */}
+            <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 p-5 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-50/50 dark:bg-emerald-950/10 rounded-bl-full" />
+              <span className="text-[10px] uppercase font-extrabold text-emerald-600 dark:text-emerald-400 tracking-wider">Predikat Akhir</span>
+              <div className="mt-2">
+                <span className="text-lg font-black text-emerald-500 block leading-tight">
+                  {averageGrade > 0 ? getOverallPredicate(averageGrade) : "Belum Tersedia"}
+                </span>
+                <span className="text-[9px] text-gray-400 mt-1 block">Berdasarkan akumulasi nilai akhir</span>
+              </div>
+            </div>
+
+            {/* Mapel Terisi */}
+            <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 p-5 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50/50 dark:bg-blue-950/10 rounded-bl-full" />
+              <span className="text-[10px] uppercase font-extrabold text-blue-600 dark:text-blue-400 tracking-wider">Mata Pelajaran Dinilai</span>
+              <div className="flex items-baseline gap-1 mt-2">
+                <span className="text-3xl font-black text-blue-500 font-mono">{gradedSubjectsCount}</span>
+                <span className="text-xs text-gray-400 font-semibold">/ {subjects.length} Mapel</span>
+              </div>
+              <p className="text-[9px] text-gray-400 mt-2">Nilai laporan hasil belajar resmi</p>
+            </div>
+
+            {/* Nilai Tertinggi */}
+            <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 p-5 rounded-2xl flex flex-col justify-between shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-amber-50/50 dark:bg-amber-950/10 rounded-bl-full" />
+              <span className="text-[10px] uppercase font-extrabold text-amber-600 dark:text-amber-400 tracking-wider">Nilai Akhir Tertinggi</span>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 text-amber-500">
+                  <Star size={16} fill="currentColor" />
+                </div>
+                <span className="text-3xl font-black text-amber-500 font-mono">
+                  {highestGrade > 0 ? highestGrade : "-"}
+                </span>
+              </div>
+              <p className="text-[9px] text-gray-400 mt-2">Pencapaian akademis terbaik Anda</p>
+            </div>
+
+          </div>
+
+          {/* Academic Report Card Table */}
+          <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden shadow-sm">
+            <div className="p-4.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Award size={18} className="text-[#696cff]" />
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Laporan Hasil Belajar (Rapor Semester)</span>
+              </div>
+              <span className="text-[10px] font-semibold text-gray-400">Tahun Ajaran: {db.getClasses().find(c => c.id === currentStudent.kelas_id)?.tahun_ajaran || "-"}</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-gray-50/75 dark:bg-slate-900 border-b border-gray-150 dark:border-gray-800 text-gray-500 uppercase tracking-widest text-[9px] font-black">
+                    <th className="p-4 pl-6">Mata Pelajaran</th>
+                    <th className="p-4 text-center">Tugas</th>
+                    <th className="p-4 text-center">Harian</th>
+                    <th className="p-4 text-center">PTS</th>
+                    <th className="p-4 text-center">PAS</th>
+                    <th className="p-4 text-center">Nilai Akhir</th>
+                    <th className="p-4 text-center">Predikat</th>
+                    <th className="p-4 text-center">Status Kelulusan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {subjects.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-gray-400">Belum ada mata pelajaran terdaftar.</td>
+                    </tr>
+                  ) : (
+                    subjects.map(subj => {
+                      const g = studentGrades.find(grade => grade.subject_id === subj.id);
+                      const hasGrade = !!g;
+
+                      // Determine KKM status (let's say KKM is 75)
+                      const isPassed = hasGrade ? g.nilai_akhir >= 75 : false;
+
+                      return (
+                        <tr key={subj.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-900/10 transition-colors">
+                          <td className="p-4 pl-6">
+                            <div>
+                              <span className="font-bold text-gray-800 dark:text-white block">{subj.nama}</span>
+                              <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">{subj.kode}</span>
+                            </div>
+                          </td>
+                          <td className="p-4 text-center font-mono font-bold text-gray-600 dark:text-gray-300">
+                            {hasGrade ? g.nilai_tugas : "-"}
+                          </td>
+                          <td className="p-4 text-center font-mono font-bold text-gray-600 dark:text-gray-300">
+                            {hasGrade ? g.nilai_harian : "-"}
+                          </td>
+                          <td className="p-4 text-center font-mono font-bold text-gray-600 dark:text-gray-300">
+                            {hasGrade ? g.nilai_pts : "-"}
+                          </td>
+                          <td className="p-4 text-center font-mono font-bold text-gray-600 dark:text-gray-300">
+                            {hasGrade ? g.nilai_pas : "-"}
+                          </td>
+                          <td className="p-4 text-center">
+                            <span className={`inline-block font-mono font-black text-xs px-2.5 py-1 rounded-lg ${
+                              !hasGrade ? "text-gray-400 bg-gray-50 dark:bg-slate-800/40" :
+                              g.nilai_akhir >= 85 ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20" :
+                              g.nilai_akhir >= 75 ? "text-blue-600 bg-blue-50 dark:bg-blue-950/20" :
+                              g.nilai_akhir >= 60 ? "text-amber-600 bg-amber-50 dark:bg-amber-950/20" :
+                              "text-red-600 bg-red-50 dark:bg-red-950/20"
+                            }`}>
+                              {hasGrade ? g.nilai_akhir : "Belum Diinput"}
+                            </span>
+                          </td>
+                          <td className="p-4 text-center">
+                            <span className={`inline-block font-bold text-[10px] px-2 py-0.5 rounded-full ${
+                              !hasGrade ? "text-gray-400 bg-gray-50 dark:bg-slate-800/40" :
+                              g.predikat === "A" ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20" :
+                              g.predikat === "B" ? "text-blue-600 bg-blue-50 dark:bg-blue-950/20" :
+                              g.predikat === "C" ? "text-amber-600 bg-amber-50 dark:bg-amber-950/20" :
+                              "text-red-600 bg-red-50 dark:bg-red-950/20"
+                            }`}>
+                              {hasGrade ? g.predikat : "-"}
+                            </span>
+                          </td>
+                          <td className="p-4 text-center">
+                            {hasGrade ? (
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-bold ${
+                                isPassed ? "text-emerald-500" : "text-amber-500"
+                              }`}>
+                                <ShieldCheck size={13} />
+                                {isPassed ? "Tuntas (>=75)" : "Remedial (<75)"}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-gray-400 italic">Menunggu Guru</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Assignment Feedback List */}
+          <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-gray-50 dark:border-gray-800/40">
+              <ClipboardList size={18} className="text-[#696cff]" />
+              <h3 className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">Catatan & Evaluasi Tugas Harian Guru</h3>
+            </div>
+
+            {submissions.filter(sub => sub.status === "Selesai" && typeof sub.nilai === "number").length === 0 ? (
+              <div className="text-center py-8 text-xs text-gray-400">
+                Belum ada tugas terkumpul yang dinilai dan diberi evaluasi catatan oleh guru.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {submissions
+                  .filter(sub => sub.status === "Selesai" && typeof sub.nilai === "number")
+                  .map(sub => {
+                    const asg = assignments.find(a => a.id === sub.assignment_id);
+                    const mapel = asg ? subjects.find(s => s.id === asg.subject_id) : null;
+
+                    return (
+                      <div key={sub.id} className="p-4 rounded-xl border border-gray-150 dark:border-gray-800/80 bg-gray-50/50 dark:bg-slate-900/10 flex flex-col justify-between space-y-3">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-start">
+                            <span className="text-[9px] font-bold text-[#696cff] bg-[#696cff]/10 px-2.5 py-0.5 rounded">
+                              {mapel?.nama || "Mata Pelajaran"}
+                            </span>
+                            <div className="flex items-center gap-1 bg-amber-50 dark:bg-amber-950/20 text-amber-500 text-xs font-black font-mono px-2 py-0.5 rounded-lg border border-amber-200/50">
+                              <Star size={12} fill="currentColor" />
+                              <span>Nilai: {sub.nilai}</span>
+                            </div>
+                          </div>
+
+                          <h4 className="text-xs font-black text-gray-900 dark:text-white leading-snug">
+                            {asg?.materi_pelajaran || "Tugas Akademik"}
+                          </h4>
+                        </div>
+
+                        {sub.catatan_guru ? (
+                          <div className="p-3 bg-white dark:bg-slate-900 border border-gray-100 dark:border-gray-800/50 rounded-xl relative">
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400 italic leading-relaxed">
+                              &ldquo;{sub.catatan_guru}&rdquo;
+                            </p>
+                            <span className="absolute -top-1.5 left-4 text-[8px] bg-[#696cff]/10 text-[#696cff] font-bold px-1 rounded">Feedback Guru</span>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-gray-400 italic">Tidak ada catatan evaluasi dari guru.</p>
+                        )}
+
+                        <div className="text-[9px] text-gray-400 font-mono flex items-center gap-1 mt-1">
+                          <Clock size={11} />
+                          <span>Diserahkan: {sub.tanggal_submit ? new Date(sub.tanggal_submit).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' }) : "-"}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+
         </div>
       )}
 

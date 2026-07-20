@@ -1,5 +1,5 @@
 import React from "react";
-import { BookOpenText, Calendar, Clock, AlertTriangle, CheckCircle, FileText, Download, UploadCloud } from "lucide-react";
+import { BookOpenText, Calendar, Clock, AlertTriangle, CheckCircle, FileText, Download, UploadCloud, Award } from "lucide-react";
 import { db } from "../utils/db";
 
 interface DashboardSiswaProps {
@@ -17,6 +17,13 @@ export const DashboardSiswa: React.FC<DashboardSiswaProps> = ({ onViewChange }) 
   const assignments = db.getAssignments().filter(a => a.kelas_id === student?.kelas_id);
   const submissions = db.getSubmissions().filter(s => s.siswa_id === student?.id);
   const materials = db.getMaterials().filter(m => m.kelas_id === student?.kelas_id);
+
+  // Grades metrics
+  const studentGrades = db.getGrades().filter(g => g.siswa_id === student?.id);
+  const gradedCount = studentGrades.length;
+  const averageGrade = gradedCount > 0 
+    ? Math.round(studentGrades.reduce((sum, g) => sum + g.nilai_akhir, 0) / gradedCount * 10) / 10 
+    : 0;
 
   // Attendance metrics
   const totalDays = attendance.length;
@@ -40,7 +47,7 @@ export const DashboardSiswa: React.FC<DashboardSiswaProps> = ({ onViewChange }) 
   return (
     <div className="space-y-6">
       {/* Stats Summary Panel */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         
         {/* Attendance Ring Summary */}
         <div className="bg-white dark:bg-[#1f202e] rounded-2xl p-6 border border-gray-100 dark:border-gray-800 flex items-center justify-between">
@@ -65,7 +72,7 @@ export const DashboardSiswa: React.FC<DashboardSiswaProps> = ({ onViewChange }) 
           <div className="space-y-1">
             <span className="text-xs text-gray-400 uppercase tracking-wider font-medium">Tugas Belum Selesai</span>
             <h3 className="text-3xl font-extrabold text-red-500 font-mono">{pendingAssignments}</h3>
-            <p className="text-xs text-gray-400">Harap kerjakan sebelum tenggat waktu berakhir.</p>
+            <p className="text-xs text-gray-400">Harap kerjakan sebelum tenggat waktu.</p>
           </div>
           <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/20 text-red-500">
             <AlertTriangle size={24} />
@@ -81,6 +88,21 @@ export const DashboardSiswa: React.FC<DashboardSiswaProps> = ({ onViewChange }) 
           </div>
           <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 text-emerald-500">
             <CheckCircle size={24} />
+          </div>
+        </div>
+
+        {/* Academic Grades Card */}
+        <div 
+          onClick={() => onViewChange("student-grades")} 
+          className="bg-white dark:bg-[#1f202e] rounded-2xl p-6 border border-gray-100 dark:border-gray-800 flex items-center justify-between cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-900 transition-all group"
+        >
+          <div className="space-y-1">
+            <span className="text-xs text-gray-400 uppercase tracking-wider font-semibold group-hover:text-[#696cff] transition-colors">Rata-Rata Nilai</span>
+            <h3 className="text-3xl font-extrabold text-[#696cff] font-mono">{averageGrade > 0 ? averageGrade : "-"}</h3>
+            <p className="text-xs text-gray-400">Dari {gradedCount} mata pelajaran dinilai.</p>
+          </div>
+          <div className="p-3.5 rounded-2xl bg-[#696cff]/10 text-[#696cff] group-hover:bg-[#696cff] group-hover:text-white transition-all">
+            <Award size={24} />
           </div>
         </div>
 
@@ -150,7 +172,15 @@ export const DashboardSiswa: React.FC<DashboardSiswaProps> = ({ onViewChange }) 
 
         {/* Latest materials */}
         <div className="bg-white dark:bg-[#1f202e] border border-gray-100 dark:border-gray-800 rounded-2xl p-6">
-          <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Materi Pembelajaran Terbaru</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">Materi Pembelajaran Terbaru</h3>
+            <button 
+              onClick={() => onViewChange("student-materials")} 
+              className="text-xs text-[#696cff] font-semibold hover:underline"
+            >
+              Lihat Semua ({materials.length})
+            </button>
+          </div>
           
           {materials.length === 0 ? (
             <div className="py-8 text-center text-xs text-gray-400">Belum ada materi ajar yang diupload.</div>

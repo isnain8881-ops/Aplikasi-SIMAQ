@@ -4,7 +4,7 @@ import { Navbar } from "./components/Navbar";
 import { Footer } from "./components/Footer";
 import { Login } from "./views/Login";
 import { SupabaseHelpModal } from "./components/SupabaseHelpModal";
-import { Database } from "lucide-react";
+import { Database, Lock, Delete } from "lucide-react";
 
 // Views import
 import { DashboardGuru } from "./views/DashboardGuru";
@@ -14,8 +14,10 @@ import { ProfileSiswa } from "./views/ProfileSiswa";
 import { SubjectsModule, ClassesModule, StudentsModule } from "./views/MasterModules";
 import { GradesModule, AttendanceModule, TeachingJournalModule } from "./views/AcademicModules";
 import { MaterialsModule, AssignmentsModule } from "./views/LearningModules";
+import { SchedulesModule } from "./views/SchedulesModule";
 import { ReportsView } from "./views/Laporan";
 import { StudentModules } from "./views/StudentModules";
+import { BackupRestoreView } from "./views/BackupRestore";
 
 import { db } from "./utils/db";
 import { Profile, Student } from "./types";
@@ -54,6 +56,15 @@ export default function App() {
   const [supabaseHelpOpen, setSupabaseHelpOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
   const [activeError, setActiveError] = useState<string | null>(null);
+
+  // Custom Background State
+  const [customBg, setCustomBg] = useState<string>(() => localStorage.getItem("simaq_custom_bg") || "green-original");
+
+  // Security PIN Lockscreen States
+  const savedPin = localStorage.getItem("simaq_security_pin");
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(() => !savedPin);
+  const [pinInput, setPinInput] = useState<string>("");
+  const [pinError, setPinError] = useState<boolean>(false);
 
   // Logo Customization State
   const [logoEmoji, setLogoEmoji] = useState<string>(() => localStorage.getItem("simaq_app_logo_emoji") || "🌙");
@@ -123,15 +134,168 @@ export default function App() {
     db.updateCurrentUser(updatedProfile);
   };
 
-  const bgStyle = {
-    backgroundImage: darkMode 
-      ? "linear-gradient(rgba(11, 22, 18, 0.94), rgba(11, 22, 18, 0.94)), url('/src/assets/images/clean_green_abstract_bg_1783343724360.jpg')"
-      : "linear-gradient(rgba(225, 238, 230, 0.82), rgba(225, 238, 230, 0.82)), url('/src/assets/images/clean_green_abstract_bg_1783343724360.jpg')",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-    backgroundAttachment: "fixed"
+  const getBackgroundStyle = () => {
+    switch (customBg) {
+      case "slate-dark":
+        return {
+          backgroundImage: darkMode
+            ? "linear-gradient(135deg, #12131c 0%, #0d0e15 100%)"
+            : "linear-gradient(135deg, #f0f2f5 0%, #e4e7eb 100%)",
+          backgroundSize: "cover",
+          backgroundAttachment: "fixed"
+        };
+      case "blue-aurora":
+        return {
+          backgroundImage: darkMode
+            ? "linear-gradient(135deg, #0b1528 0%, #1a0b2e 100%)"
+            : "linear-gradient(135deg, #e0e8f9 0%, #f1eefb 100%)",
+          backgroundSize: "cover",
+          backgroundAttachment: "fixed"
+        };
+      case "sunset-glow":
+        return {
+          backgroundImage: darkMode
+            ? "linear-gradient(135deg, #1c0f0a 0%, #2e100c 100%)"
+            : "linear-gradient(135deg, #fdf4f0 0%, #fbe8df 100%)",
+          backgroundSize: "cover",
+          backgroundAttachment: "fixed"
+        };
+      case "ocean-breeze":
+        return {
+          backgroundImage: darkMode
+            ? "linear-gradient(135deg, #06181b 0%, #061c24 100%)"
+            : "linear-gradient(135deg, #e4f5f8 0%, #d4eff4 100%)",
+          backgroundSize: "cover",
+          backgroundAttachment: "fixed"
+        };
+      case "green-original":
+      default:
+        return {
+          backgroundImage: darkMode 
+            ? "linear-gradient(rgba(11, 22, 18, 0.94), rgba(11, 22, 18, 0.94)), url('/src/assets/images/clean_green_abstract_bg_1783343724360.jpg')"
+            : "linear-gradient(rgba(225, 238, 230, 0.82), rgba(225, 238, 230, 0.82)), url('/src/assets/images/clean_green_abstract_bg_1783343724360.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          backgroundAttachment: "fixed"
+        };
+    }
   };
+
+  const handlePinSubmit = (enteredPin: string) => {
+    if (enteredPin === savedPin) {
+      setIsUnlocked(true);
+      setPinError(false);
+      setPinInput("");
+    } else {
+      setPinError(true);
+      setPinInput("");
+      setTimeout(() => setPinError(false), 1000);
+    }
+  };
+
+  const handleKeypadPress = (num: string) => {
+    if (pinInput.length < 4) {
+      const nextInput = pinInput + num;
+      setPinInput(nextInput);
+      if (nextInput.length === 4) {
+        setTimeout(() => handlePinSubmit(nextInput), 250);
+      }
+    }
+  };
+
+  const handleKeypadBackspace = () => {
+    setPinInput(prev => prev.slice(0, -1));
+  };
+
+  const bgStyle = getBackgroundStyle();
+
+  // If PIN is configured and not yet unlocked in session, show security overlay
+  if (savedPin && !isUnlocked) {
+    return (
+      <div 
+        style={bgStyle}
+        className={`min-h-screen flex flex-col justify-center items-center p-4 transition-colors duration-200 ${darkMode ? "dark" : ""}`}
+      >
+        <div className="w-full max-w-sm bg-white dark:bg-[#1f202e] rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 p-8 text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#696cff]" />
+          
+          <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/30 rounded-full flex items-center justify-center text-[#696cff] mx-auto mb-4 border border-indigo-100/50 dark:border-indigo-900/40">
+            <Lock size={30} className={pinError ? "animate-bounce text-red-500" : ""} />
+          </div>
+
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Kunci PIN Keamanan</h2>
+          <p className="text-xs text-gray-400 mt-1">Masukkan 4 digit PIN Anda untuk mengakses SIMAQ</p>
+
+          <div className="flex justify-center gap-4 my-8">
+            {[0, 1, 2, 3].map((index) => (
+              <div 
+                key={index}
+                className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${
+                  pinError 
+                    ? "border-red-500 bg-red-500 animate-pulse" 
+                    : index < pinInput.length
+                    ? "border-[#696cff] bg-[#696cff] scale-110" 
+                    : "border-gray-300 dark:border-gray-700"
+                }`}
+              />
+            ))}
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 max-w-[240px] mx-auto">
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((num) => (
+              <button
+                key={num}
+                onClick={() => handleKeypadPress(num)}
+                className="w-14 h-14 rounded-full bg-gray-50 dark:bg-slate-800 hover:bg-[#696cff]/10 dark:hover:bg-[#696cff]/20 text-gray-800 dark:text-gray-200 font-bold text-lg border border-gray-100 dark:border-gray-700/60 active:scale-95 transition-all cursor-pointer flex items-center justify-center mx-auto"
+              >
+                {num}
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                setPinInput("");
+                setPinError(false);
+              }}
+              className="w-14 h-14 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-xs font-bold text-gray-400 active:scale-95 transition-all cursor-pointer flex items-center justify-center mx-auto"
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => handleKeypadPress("0")}
+              className="w-14 h-14 rounded-full bg-gray-50 dark:bg-slate-800 hover:bg-[#696cff]/10 dark:hover:bg-[#696cff]/20 text-gray-800 dark:text-gray-200 font-bold text-lg border border-gray-100 dark:border-gray-700/60 active:scale-95 transition-all cursor-pointer flex items-center justify-center mx-auto"
+            >
+              0
+            </button>
+            <button
+              onClick={handleKeypadBackspace}
+              className="w-14 h-14 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-500 active:scale-95 transition-all cursor-pointer flex items-center justify-center mx-auto"
+            >
+              <Delete size={18} />
+            </button>
+          </div>
+
+          {pinError && (
+            <p className="text-xs font-bold text-red-500 mt-4 animate-pulse">PIN salah! Silakan coba lagi.</p>
+          )}
+
+          <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800/60">
+            <button 
+              onClick={() => {
+                if (window.confirm("Lupa PIN? Untuk memulihkan akses, database akan direset penuh ke setelan pabrik. Seluruh data modifikasi Anda akan terhapus secara permanen. Lanjutkan?")) {
+                  db.factoryReset();
+                  window.location.reload();
+                }
+              }}
+              className="text-[10px] font-bold text-gray-400 hover:text-red-500 transition-all cursor-pointer uppercase tracking-wider"
+            >
+              Lupa PIN? Reset Aplikasi
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!sessionUser) {
     return (
@@ -188,6 +352,8 @@ export default function App() {
           return <GradesModule />;
         case "attendance":
           return <AttendanceModule />;
+        case "schedules":
+          return <SchedulesModule />;
         case "journals":
         case "journal":
           return <TeachingJournalModule />;
@@ -197,6 +363,8 @@ export default function App() {
           return <AssignmentsModule />;
         case "reports":
           return <ReportsView />;
+        case "backup-restore":
+          return <BackupRestoreView />;
         case "profile":
           return (
             <ProfileGuru 
@@ -218,10 +386,16 @@ export default function App() {
           );
         case "student-attendance":
         case "attendance":
-          return <StudentModules currentStudent={currentStudentEntity!} />;
+          return <StudentModules currentStudent={currentStudentEntity!} initialTab="attendance" />;
+        case "student-materials":
+        case "materials":
+          return <StudentModules currentStudent={currentStudentEntity!} initialTab="materials" />;
         case "student-assignments":
         case "assignments":
-          return <StudentModules currentStudent={currentStudentEntity!} />;
+          return <StudentModules currentStudent={currentStudentEntity!} initialTab="assignments" />;
+        case "student-grades":
+        case "grades":
+          return <StudentModules currentStudent={currentStudentEntity!} initialTab="grades" />;
         case "student-profile":
         case "profile":
           return (

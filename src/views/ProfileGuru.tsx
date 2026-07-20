@@ -68,7 +68,7 @@ export const ProfileGuru: React.FC = () => {
     }
 
     const currentPw = db.getGuruPassword ? db.getGuruPassword(currentUser.email) : "";
-    const allowedGuruPasswords = ["isnain123", "admin123", "simaq123", "password"];
+    const allowedGuruPasswords = ["isnain0808", "isnain123", "admin123", "simaq123", "password"];
     const isOldCorrect = currentPw ? (oldPassword === currentPw) : allowedGuruPasswords.includes(oldPassword);
 
     if (!isOldCorrect) {

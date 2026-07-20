@@ -3,7 +3,7 @@ import {
   LayoutDashboard, BookOpen, School, Users, 
   Award, CheckSquare, BookOpenCheck, BarChart3, 
   User, LogOut, FileText, ClipboardList, BookOpenText,
-  Settings, X, Edit3, Sparkles
+  Settings, X, Edit3, Sparkles, Database, CalendarDays
 } from "lucide-react";
 import { Profile } from "../types";
 
@@ -36,9 +36,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [inputName, setInputName] = useState(logoName);
   const [inputSub, setInputSub] = useState(logoSub);
 
+  const sidebarStyle = localStorage.getItem("simaq_sidebar_style") || "default";
+  const isCompact = sidebarStyle === "compact";
+
   const presets = ["🌙", "🏫", "📚", "🕌", "📖", "🎓", "⭐", "📝", "💡", "🕌", "🕌"];
 
   const handleOpenModal = () => {
+    if (isCompact) return; // Disable customizer on compact to avoid layout breaking
     setInputEmoji(logoEmoji);
     setInputName(logoName);
     setInputSub(logoSub);
@@ -62,63 +66,73 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <button
         key={id}
         onClick={() => onViewChange(id)}
-        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+        className={`w-full flex items-center ${isCompact ? "justify-center px-2 py-3" : "gap-3 px-4 py-2.5"} rounded-lg text-sm font-medium transition-all duration-150 ${
           isActive 
-            ? "bg-[#696cff] text-white shadow-md shadow-[#696cff]40" 
+            ? "bg-[#696cff] text-white shadow-md shadow-[#696cff]/40" 
             : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800"
         }`}
+        title={isCompact ? label : undefined}
       >
-        <div className={`w-5 h-5 flex items-center justify-center ${isActive ? "text-white" : "text-gray-400 dark:text-gray-400 group-hover:text-gray-500"}`}>
+        <div className={`w-5 h-5 flex items-center justify-center shrink-0 ${isActive ? "text-white" : "text-gray-400 dark:text-gray-400 group-hover:text-gray-500"}`}>
           {icon}
         </div>
-        <span className="truncate">{label}</span>
+        {!isCompact && <span className="truncate">{label}</span>}
       </button>
     );
   };
 
-  const renderSectionHeader = (title: string) => (
-    <div className="px-4 py-2 mt-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-      {title}
-    </div>
-  );
+  const renderSectionHeader = (title: string) => {
+    if (isCompact) {
+      return <div className="border-t border-gray-100 dark:border-gray-800 my-4" />;
+    }
+    return (
+      <div className="px-4 py-2 mt-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+        {title}
+      </div>
+    );
+  };
 
   return (
-    <aside className="w-64 flex-shrink-0 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1f202e] flex flex-col h-screen overflow-y-auto relative">
+    <aside className={`${isCompact ? "w-20" : "w-64"} flex-shrink-0 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1f202e] flex flex-col h-screen overflow-y-auto relative transition-all duration-300`}>
       {/* Brand Header */}
       <div 
         onClick={handleOpenModal}
-        className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800/80 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer group transition-colors"
+        className={`flex items-center ${isCompact ? "justify-center py-5" : "justify-between px-5 py-4"} border-b border-gray-100 dark:border-gray-800/80 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer group transition-colors`}
         title="Klik untuk mengubah logo & nama aplikasi"
       >
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#696cff] flex items-center justify-center text-white font-bold text-lg shadow-sm transition-transform duration-300 group-hover:scale-110">
+          <div className="w-9 h-9 rounded-xl bg-[#696cff] flex items-center justify-center text-white font-bold text-lg shadow-sm transition-transform duration-300 group-hover:scale-110 shrink-0">
             {logoEmoji}
           </div>
-          <div>
-            <h1 className="text-base font-extrabold text-gray-900 dark:text-white leading-none tracking-tight flex items-center gap-1 group-hover:text-[#696cff] transition-colors">
-              {logoName}
-            </h1>
-            <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mt-0.5 truncate max-w-[130px]">
-              {logoSub}
-            </span>
-          </div>
+          {!isCompact && (
+            <div>
+              <h1 className="text-base font-extrabold text-gray-900 dark:text-white leading-none tracking-tight flex items-center gap-1 group-hover:text-[#696cff] transition-colors">
+                {logoName}
+              </h1>
+              <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mt-0.5 truncate max-w-[130px]">
+                {logoSub}
+              </span>
+            </div>
+          )}
         </div>
-        <Settings size={14} className="text-gray-300 dark:text-gray-600 group-hover:text-[#696cff] group-hover:rotate-45 transition-all" />
+        {!isCompact && <Settings size={14} className="text-gray-300 dark:text-gray-600 group-hover:text-[#696cff] group-hover:rotate-45 transition-all" />}
       </div>
 
       {/* Profile summary */}
-      <div className="px-4 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3">
+      <div className={`px-4 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center ${isCompact ? "justify-center" : "gap-3"}`}>
         <img
           src={currentUser.photo_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150&auto=format&fit=crop"}
           alt={currentUser.nama}
-          className="w-10 h-10 rounded-full border border-gray-200 dark:border-gray-700 object-cover"
+          className="w-10 h-10 rounded-full border border-gray-200 dark:border-gray-700 object-cover shrink-0"
         />
-        <div className="overflow-hidden">
-          <h4 className="text-sm font-semibold truncate text-gray-900 dark:text-white">{currentUser.nama}</h4>
-          <span className="text-xs px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider text-[10px]">
-            {currentUser.role}
-          </span>
-        </div>
+        {!isCompact && (
+          <div className="overflow-hidden">
+            <h4 className="text-sm font-semibold truncate text-gray-900 dark:text-white">{currentUser.nama}</h4>
+            <span className="text-xs px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider text-[10px]">
+              {currentUser.role}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Menu scroll area */}
@@ -135,6 +149,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {renderSectionHeader("Akademik")}
             {renderMenuItem("grades", "Nilai Siswa", <Award size={18} />)}
             {renderMenuItem("attendance", "Absensi Siswa", <CheckSquare size={18} />)}
+            {renderMenuItem("schedules", "Jadwal Mengajar", <CalendarDays size={18} />)}
             {renderMenuItem("materials", "Materi Ajar", <FileText size={18} />)}
             {renderMenuItem("assignments", "Penugasan", <ClipboardList size={18} />)}
             {renderMenuItem("journals", "Jurnal Mengajar", <BookOpenCheck size={18} />)}
@@ -144,12 +159,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {renderSectionHeader("Pengaturan")}
             {renderMenuItem("profile", "Profil Guru", <User size={18} />)}
+            {renderMenuItem("backup-restore", "Pengaturan Sistem", <Settings size={18} />)}
           </>
         ) : (
           <>
             {renderSectionHeader("Data Siswa")}
             {renderMenuItem("student-attendance", "Absensi Siswa", <CheckSquare size={18} />)}
-            {renderMenuItem("student-assignments", "Tugas & Materi", <ClipboardList size={18} />)}
+            {renderMenuItem("student-materials", "Materi Belajar", <BookOpenText size={18} />)}
+            {renderMenuItem("student-assignments", "Tugas Siswa", <ClipboardList size={18} />)}
+            {renderMenuItem("student-grades", "Hasil Penilaian", <Award size={18} />)}
 
             {renderSectionHeader("Pengaturan Siswa")}
             {renderMenuItem("student-profile", "Profil Siswa", <User size={18} />)}
@@ -254,7 +272,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   type="text"
                   value={inputSub}
                   onChange={(e) => setInputSub(e.target.value)}
-                  placeholder="Nama sekolah (contoh: Aliyah Al-Qamar)"
+                  placeholder="Nama sekolah (contoh: Madrasah Aliyah Al-Qamar)"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#11121d] text-sm focus:outline-none focus:ring-2 focus:ring-[#696cff]/20 focus:border-[#696cff] dark:text-white"
                 />
               </div>

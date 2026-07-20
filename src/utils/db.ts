@@ -1,8 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { 
   Profile, Subject, ClassRoom, Student, Grade, 
-  Attendance, Material, Assignment, AssignmentSubmission, TeachingJournal 
+  Attendance, Material, Assignment, AssignmentSubmission, TeachingJournal,
+  TeachingSchedule
 } from "../types";
+import logoAlqamar from "../assets/images/logo_alqamar.jpg";
 
 // Attempt to load Supabase config from environment variables
 const getCleanEnvValue = (val: string): string => {
@@ -23,8 +25,19 @@ const getSupabaseKeys = () => {
   if (!key) {
     key = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || "";
   }
+  
+  let cleanUrl = getCleanEnvValue(url);
+  if (cleanUrl.endsWith("/rest/v1/")) {
+    cleanUrl = cleanUrl.slice(0, -9);
+  } else if (cleanUrl.endsWith("/rest/v1")) {
+    cleanUrl = cleanUrl.slice(0, -8);
+  }
+  if (cleanUrl.endsWith("/")) {
+    cleanUrl = cleanUrl.slice(0, -1);
+  }
+
   return {
-    url: getCleanEnvValue(url),
+    url: cleanUrl,
     key: getCleanEnvValue(key)
   };
 };
@@ -84,7 +97,7 @@ const DEFAULT_GURU: Profile = {
   email: "isnain8881@gmail.com",
   nip_nisn: "198108082007101002",
   hp: "081241392708",
-  photo_url: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&auto=format&fit=crop",
+  photo_url: logoAlqamar,
   created_at: new Date().toISOString()
 };
 
@@ -103,151 +116,48 @@ const INITIAL_SUBJECTS: Subject[] = [
   { id: "sub-1", kode: "MTK-12", nama: "Matematika Aliyah" },
   { id: "sub-2", kode: "PAI-12", nama: "Pendidikan Agama Islam (Fiqih)" },
   { id: "sub-3", kode: "BING-12", nama: "Bahasa Inggris" },
-  { id: "sub-4", kode: "FIS-12", nama: "Fisika" }
+  { id: "sub-4", kode: "FIS-12", nama: "Fisika" },
+  { id: "sub-5", kode: "SEJ-AL", nama: "Sejarah Aliyah" }
 ];
 
 const INITIAL_CLASSES: ClassRoom[] = [
-  { id: "class-1", nama: "XII IPA 1", tingkat: "12", tahun_ajaran: "2025/2026" },
-  { id: "class-2", nama: "XII IPS 1", tingkat: "12", tahun_ajaran: "2025/2026" },
-  { id: "class-3", nama: "XI IPA 1", tingkat: "11", tahun_ajaran: "2025/2026" }
+    { id: "class-xa", nama: "X-A", tingkat: "10", tahun_ajaran: "2026/2027" },
+  { id: "class-xb", nama: "X-B", tingkat: "10", tahun_ajaran: "2026/2027" },
+  { id: "class-xia", nama: "XI-A", tingkat: "11", tahun_ajaran: "2026/2027" },
+  { id: "class-xib", nama: "XI-B", tingkat: "11", tahun_ajaran: "2026/2027" },
+  { id: "class-xiia", nama: "XII-A", tingkat: "12", tahun_ajaran: "2026/2027" },
+  { id: "class-xiib", nama: "XII-B", tingkat: "12", tahun_ajaran: "2026/2027" }
 ];
 
 const INITIAL_STUDENTS: Student[] = [
-  { id: "stud-1", nis: "2007101002", nama_lengkap: "Muhammad Al-Fatih", jenis_kelamin: "Laki-laki", tempat_lahir: "Makassar", tanggal_lahir: "2008-01-15", alamat: "Jl. Al-Qamar No. 12, Makassar", hp_ortu: "081241392708", kelas_id: "class-1" },
-  { id: "stud-2", nis: "2007101003", nama_lengkap: "Siti Aisyah", jenis_kelamin: "Perempuan", tempat_lahir: "Gowa", tanggal_lahir: "2008-05-20", alamat: "Perumahan Indah Gowa Block B", hp_ortu: "081234567890", kelas_id: "class-1" },
-  { id: "stud-3", nis: "2007101004", nama_lengkap: "Ahmad Dani", jenis_kelamin: "Laki-laki", tempat_lahir: "Maros", tanggal_lahir: "2007-11-03", alamat: "Jl. Pendidikan Maros No. 5", hp_ortu: "085233221144", kelas_id: "class-1" },
-  { id: "stud-4", nis: "2007101005", nama_lengkap: "Fatimah Az-Zahra", jenis_kelamin: "Perempuan", tempat_lahir: "Makassar", tanggal_lahir: "2008-02-14", alamat: "Kompleks Perhubungan Makassar", hp_ortu: "081344556677", kelas_id: "class-2" },
-  { id: "stud-5", nis: "2007101006", nama_lengkap: "Yusuf Sulaiman", jenis_kelamin: "Laki-laki", tempat_lahir: "Takalar", tanggal_lahir: "2008-09-09", alamat: "Jl. Poros Takalar Km 2", hp_ortu: "082199887766", kelas_id: "class-2" }
+  
 ];
 
 const INITIAL_GRADES: Grade[] = [
-  { id: "grd-1", siswa_id: "stud-1", kelas_id: "class-1", subject_id: "sub-1", nilai_tugas: 85, nilai_harian: 80, nilai_pts: 78, nilai_pas: 82, nilai_akhir: 81.1, predikat: "B" },
-  { id: "grd-2", siswa_id: "stud-2", kelas_id: "class-1", subject_id: "sub-1", nilai_tugas: 95, nilai_harian: 90, nilai_pts: 88, nilai_pas: 92, nilai_akhir: 91.1, predikat: "A" },
-  { id: "grd-3", siswa_id: "stud-3", kelas_id: "class-1", subject_id: "sub-1", nilai_tugas: 75, nilai_harian: 70, nilai_pts: 72, nilai_pas: 75, nilai_akhir: 72.9, predikat: "C" },
-  { id: "grd-4", siswa_id: "stud-1", kelas_id: "class-1", subject_id: "sub-2", nilai_tugas: 90, nilai_harian: 92, nilai_pts: 85, nilai_pas: 88, nilai_akhir: 88.9, predikat: "A" },
-  { id: "grd-5", siswa_id: "stud-2", kelas_id: "class-1", subject_id: "sub-2", nilai_tugas: 88, nilai_harian: 85, nilai_pts: 80, nilai_pas: 85, nilai_akhir: 84.4, predikat: "B" }
+  
 ];
 
 const INITIAL_ATTENDANCE: Attendance[] = [
-  // XII IPA 1, sub-1 (MTK), 2026-07-01
-  { id: "att-1", siswa_id: "stud-1", kelas_id: "class-1", subject_id: "sub-1", tanggal: "2026-07-01", status: "Hadir" },
-  { id: "att-2", siswa_id: "stud-2", kelas_id: "class-1", subject_id: "sub-1", tanggal: "2026-07-01", status: "Hadir" },
-  { id: "att-3", siswa_id: "stud-3", kelas_id: "class-1", subject_id: "sub-1", tanggal: "2026-07-01", status: "Izin" },
-  // XII IPA 1, sub-1 (MTK), 2026-07-02
-  { id: "att-4", siswa_id: "stud-1", kelas_id: "class-1", subject_id: "sub-1", tanggal: "2026-07-02", status: "Hadir" },
-  { id: "att-5", siswa_id: "stud-2", kelas_id: "class-1", subject_id: "sub-1", tanggal: "2026-07-02", status: "Sakit" },
-  { id: "att-6", siswa_id: "stud-3", kelas_id: "class-1", subject_id: "sub-1", tanggal: "2026-07-02", status: "Hadir" },
-  // XII IPA 1, sub-1 (MTK), 2026-07-03
-  { id: "att-7", siswa_id: "stud-1", kelas_id: "class-1", subject_id: "sub-1", tanggal: "2026-07-03", status: "Hadir" },
-  { id: "att-8", siswa_id: "stud-2", kelas_id: "class-1", subject_id: "sub-1", tanggal: "2026-07-03", status: "Hadir" },
-  { id: "att-9", siswa_id: "stud-3", kelas_id: "class-1", subject_id: "sub-1", tanggal: "2026-07-03", status: "Alfa" }
+  
 ];
 
 const INITIAL_MATERIALS: Material[] = [
-  {
-    id: "mat-1",
-    tanggal: "2026-07-01",
-    subject_id: "sub-1",
-    kelas_id: "class-1",
-    jam_pelajaran: "07:30 - 09:00",
-    materi_pembelajaran: "Limit Fungsi Aljabar dan Trigonometri",
-    metode_pembelajaran: "Ceramah dan Diskusi Kelompok",
-    file_name: "Modul_Limit_Fungsi.pdf",
-    file_type: "PDF",
-    file_url: "https://example.com/files/Modul_Limit_Fungsi.pdf"
-  },
-  {
-    id: "mat-2",
-    tanggal: "2026-07-02",
-    subject_id: "sub-2",
-    kelas_id: "class-1",
-    jam_pelajaran: "09:15 - 10:45",
-    materi_pembelajaran: "Zakat Fitrah dan Zakat Mal",
-    metode_pembelajaran: "Diskusi Interaktif & Pemecahan Kasus",
-    file_name: "Panduan_Zakat_Praktis.pptx",
-    file_type: "PPT",
-    file_url: "https://example.com/files/Panduan_Zakat_Praktis.pptx"
-  }
+  
 ];
 
 const INITIAL_ASSIGNMENTS: Assignment[] = [
-  {
-    id: "asg-1",
-    tanggal: "2026-07-01",
-    subject_id: "sub-1",
-    kelas_id: "class-1",
-    materi_pelajaran: "Latihan Soal Limit Fungsi Trigonometri",
-    deskripsi: "Kerjakan soal Latihan 1.2 di Buku Paket halaman 25 nomor 1-10. Tulis tangan dan kumpulkan dalam format PDF.",
-    deadline: "2026-07-10T23:59",
-    file_name: "Latihan_Limit_Trig.pdf",
-    file_url: "https://example.com/assignments/Latihan_Limit_Trig.pdf"
-  },
-  {
-    id: "asg-2",
-    tanggal: "2026-07-02",
-    subject_id: "sub-2",
-    kelas_id: "class-1",
-    materi_pelajaran: "Analisis Ketentuan Zakat Mal Kontemporer",
-    deskripsi: "Tulis esai singkat 2 halaman mengenai zakat profesi di era modern, kumpulkan dalam format Word atau PDF.",
-    deadline: "2026-07-12T23:59",
-    file_name: "Tugas_Zakat_Profesi.docx",
-    file_url: "https://example.com/assignments/Tugas_Zakat_Profesi.docx"
-  }
+  
 ];
 
 const INITIAL_SUBMISSIONS: AssignmentSubmission[] = [
-  {
-    id: "subm-1",
-    assignment_id: "asg-1",
-    siswa_id: "stud-1",
-    tanggal_submit: "2026-07-03T14:20",
-    file_name: "Jawaban_Limit_Trig_Fatih.pdf",
-    file_url: "https://example.com/submissions/Jawaban_Limit_Trig_Fatih.pdf",
-    status: "Selesai",
-    nilai: 85,
-    catatan_guru: "Kerja bagus, pengerjaan rapi dan tepat!"
-  },
-  {
-    id: "subm-2",
-    assignment_id: "asg-2",
-    siswa_id: "stud-1",
-    tanggal_submit: "",
-    file_name: "",
-    file_url: "",
-    status: "Belum Dikerjakan"
-  }
+  
 ];
 
 const INITIAL_JOURNALS: TeachingJournal[] = [
-  {
-    id: "jrnl-1",
-    tanggal: "2026-07-01",
-    subject_id: "sub-1",
-    kelas_id: "class-1",
-    jam_pelajaran: "I & II (07:30 - 09:00)",
-    materi_pembelajaran: "Limit Fungsi Aljabar",
-    metode_pembelajaran: "Problem Based Learning",
-    jumlah_hadir: 2,
-    catatan_guru: "Siswa sangat antusias. Ahmad Dani mengalami sedikit kendala pada faktorisasi kuadrat.",
-    lampiran_name: "Foto_Kelas_Mtk_01072026.jpg",
-    lampiran_url: "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?q=80&w=200",
-    created_at: "2026-07-01T09:30:00Z"
-  },
-  {
-    id: "jrnl-2",
-    tanggal: "2026-07-02",
-    subject_id: "sub-2",
-    kelas_id: "class-1",
-    jam_pelajaran: "III & IV (09:15 - 10:45)",
-    materi_pembelajaran: "Zakat Fitrah",
-    metode_pembelajaran: "Diskusi Kelompok",
-    jumlah_hadir: 2,
-    catatan_guru: "Siti Aisyah aktif memimpin kelompok diskusinya. Materi tersampaikan penuh.",
-    lampiran_name: "Rencana_Belajar.pdf",
-    lampiran_url: "https://example.com/Rencana_Belajar.pdf",
-    created_at: "2026-07-02T11:00:00Z"
-  }
+  
 ];
+
+const INITIAL_SCHEDULES: TeachingSchedule[] = [];
 
 // Ensure LS keys exist
 const initLS = () => {
@@ -258,6 +168,28 @@ const initLS = () => {
   };
 
   // Auth accounts
+  const existingGuru = localStorage.getItem("simaq_profile_guru");
+  if (existingGuru) {
+    try {
+      const guruObj = JSON.parse(existingGuru);
+      if (guruObj.photo_url && (guruObj.photo_url.includes("unsplash.com") || guruObj.photo_url.includes("photo-1573496359142-b8d87734a5a2"))) {
+        guruObj.photo_url = logoAlqamar;
+        localStorage.setItem("simaq_profile_guru", JSON.stringify(guruObj));
+        
+        const currentUserStr = localStorage.getItem("simaq_current_user");
+        if (currentUserStr) {
+          const currentUserObj = JSON.parse(currentUserStr);
+          if (currentUserObj.role === "guru" && currentUserObj.id === guruObj.id) {
+            currentUserObj.photo_url = logoAlqamar;
+            localStorage.setItem("simaq_current_user", JSON.stringify(currentUserObj));
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   checkAndSet("simaq_profile_guru", DEFAULT_GURU);
   checkAndSet("simaq_profile_siswa", DEFAULT_SISWA_PROFILE);
   checkAndSet("simaq_subjects", INITIAL_SUBJECTS);
@@ -269,6 +201,56 @@ const initLS = () => {
   checkAndSet("simaq_assignments", INITIAL_ASSIGNMENTS);
   checkAndSet("simaq_submissions", INITIAL_SUBMISSIONS);
   checkAndSet("simaq_journals", INITIAL_JOURNALS);
+  checkAndSet("simaq_schedules", INITIAL_SCHEDULES);
+
+  // Force-inject Sejarah Aliyah, the new classes, and the extracted schedules to handle existing localStorage cache
+  try {
+    // 1. Force inject Sejarah subject
+    let storedSubjects: Subject[] = JSON.parse(localStorage.getItem("simaq_subjects") || "[]");
+    if (!storedSubjects.some(s => s.id === "sub-5")) {
+      storedSubjects.push({ id: "sub-5", kode: "SEJ-AL", nama: "Sejarah Aliyah" });
+      localStorage.setItem("simaq_subjects", JSON.stringify(storedSubjects));
+    }
+
+    // 2. Force inject new roster classes
+    let storedClasses: ClassRoom[] = JSON.parse(localStorage.getItem("simaq_classes") || "[]");
+    const newClasses = [
+      { id: "class-xa", nama: "X-A", tingkat: "10", tahun_ajaran: "2026/2027" },
+      { id: "class-xb", nama: "X-B", tingkat: "10", tahun_ajaran: "2026/2027" },
+      { id: "class-xia", nama: "XI-A", tingkat: "11", tahun_ajaran: "2026/2027" },
+      { id: "class-xib", nama: "XI-B", tingkat: "11", tahun_ajaran: "2026/2027" },
+      { id: "class-xiia", nama: "XII-A", tingkat: "12", tahun_ajaran: "2026/2027" },
+      { id: "class-xiib", nama: "XII-B", tingkat: "12", tahun_ajaran: "2026/2027" }
+    ];
+    let classAdded = false;
+    newClasses.forEach(nc => {
+      if (!storedClasses.some(c => c.id === nc.id || c.nama === nc.nama)) {
+        storedClasses.push(nc);
+        classAdded = true;
+      }
+    });
+    if (classAdded) {
+      localStorage.setItem("simaq_classes", JSON.stringify(storedClasses));
+    }
+
+    // 3. One-time clear of schedules requested by user
+    if (!localStorage.getItem("simaq_schedules_cleared_v2")) {
+      localStorage.setItem("simaq_schedules", JSON.stringify([]));
+      localStorage.setItem("simaq_schedules_cleared_v2", "true");
+      // Trigger remote deletion asynchronously if Supabase is connected
+      setTimeout(async () => {
+        if (isSupabaseConfigured()) {
+          try {
+            await supabase!.from("teaching_schedules").delete().neq("id", "placeholder-id-that-does-not-exist");
+          } catch (e) {
+            console.error("Gagal membersihkan jadwal di Supabase:", e);
+          }
+        }
+      }, 1000);
+    }
+  } catch (err) {
+    console.error("Error inject roster:", err);
+  }
   
   if (!localStorage.getItem("simaq_current_user")) {
     // default to empty
@@ -361,7 +343,7 @@ export const db = {
   },
 
   getGuruPassword: (email: string): string => {
-    if (typeof window === "undefined") return "isnain123";
+    if (typeof window === "undefined") return "isnain0808";
     try {
       const passwordsRaw = localStorage.getItem("simaq_guru_passwords");
       const passwords = passwordsRaw ? JSON.parse(passwordsRaw) : {};
@@ -388,7 +370,7 @@ export const db = {
     const cleanPassword = password.trim();
 
     // Determine expected passwords
-    const allowedGuruPasswords = ["isnain123", "admin123", "simaq123", "password"];
+    const allowedGuruPasswords = ["isnain0808", "isnain123", "admin123", "simaq123", "password"];
 
     // Simulation logic (Supabase is handled if configured, otherwise local fallback)
     if (isSupabaseConfigured()) {
@@ -490,7 +472,7 @@ export const db = {
             localStorage.setItem("simaq_current_user", JSON.stringify(guru));
             return { success: true, user: guru };
           } else {
-            return { success: false, error: "Kata sandi Guru salah! Silakan gunakan kata sandi baru Anda atau 'isnain123'" };
+            return { success: false, error: "Kata sandi Guru salah! Silakan gunakan kata sandi baru Anda atau 'isnain0808'" };
           }
         } else {
           return { success: false, error: "Email Guru tidak terdaftar! Silakan gunakan: 'isnain8881@gmail.com'" };
@@ -598,7 +580,12 @@ export const db = {
 
     if (isSupabaseConfigured()) {
       handleSupabaseResult(
-        supabase!.from("subjects").upsert({ id: subj.id, kode: subj.kode, nama: subj.nama }),
+        supabase!.from("subjects").upsert({ 
+          id: subj.id, 
+          kode: subj.kode, 
+          nama: subj.nama,
+          created_at: (subj as any).created_at || new Date().toISOString()
+        }),
         "Menyimpan mata pelajaran"
       );
     }
@@ -629,9 +616,16 @@ export const db = {
     const jrs = db.getJournals().filter(j => j.subject_id !== id);
     localStorage.setItem("simaq_journals", JSON.stringify(jrs));
 
+    const schs = db.getSchedules().filter(s => s.subject_id !== id);
+    localStorage.setItem("simaq_schedules", JSON.stringify(schs));
+
     // 2. Perform deletions on Supabase in correct order to avoid Foreign Key violations
     if (isSupabaseConfigured()) {
       try {
+        // Delete referenced teaching schedules first to avoid constraint violations
+        const resSch = await supabase!.from("teaching_schedules").delete().eq("subject_id", id);
+        if (resSch.error) throw resSch.error;
+
         // Find all assignment IDs of this subject directly on Supabase to ensure clean cascade
         const { data: dbAsgs, error: asgQueryErr } = await supabase!
           .from("assignments")
@@ -687,11 +681,17 @@ export const db = {
     localStorage.setItem("simaq_classes", JSON.stringify(clss));
 
     if (isSupabaseConfigured()) {
-      handleSupabaseResult(
-        supabase!.from("classes").upsert({ id: cls.id, nama: cls.nama, tingkat: cls.tingkat, tahun_ajaran: cls.tahun_ajaran }),
-        "Menyimpan kelas"
-      );
-    }
+       handleSupabaseResult(
+         supabase!.from("classes").upsert({ 
+           id: cls.id, 
+           nama: cls.nama, 
+           tingkat: cls.tingkat, 
+           tahun_ajaran: cls.tahun_ajaran,
+           created_at: (cls as any).created_at || new Date().toISOString()
+         }),
+         "Menyimpan kelas"
+       );
+     }
   },
   deleteClass: async (id: string) => {
     // 1. Update/Delete in LocalStorage
@@ -727,9 +727,16 @@ export const db = {
     const jrs = db.getJournals().filter(j => j.kelas_id !== id);
     localStorage.setItem("simaq_journals", JSON.stringify(jrs));
 
+    const schs = db.getSchedules().filter(s => s.kelas_id !== id);
+    localStorage.setItem("simaq_schedules", JSON.stringify(schs));
+
     // 2. Perform deletions on Supabase in correct order to avoid Foreign Key violations
     if (isSupabaseConfigured()) {
       try {
+        // Delete referenced teaching schedules first to avoid constraint violations
+        const resSch = await supabase!.from("teaching_schedules").delete().eq("kelas_id", id);
+        if (resSch.error) throw resSch.error;
+
         // Find all assignment IDs of this class directly on Supabase to ensure clean cascade
         const { data: dbAsgs, error: asgQueryErr } = await supabase!
           .from("assignments")
@@ -779,6 +786,35 @@ export const db = {
   // --- STUDENTS (SISWA) ---
   getStudents: (): Student[] => {
     return JSON.parse(localStorage.getItem("simaq_students") || "[]");
+  },
+  resetStudents: () => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("simaq_students", JSON.stringify(INITIAL_STUDENTS));
+    localStorage.removeItem("simaq_student_passwords");
+  },
+  deleteAllStudents: async () => {
+    if (typeof window === "undefined") return;
+    // 1. Update / Clear LocalStorage
+    localStorage.setItem("simaq_students", JSON.stringify([]));
+    localStorage.removeItem("simaq_student_passwords");
+    localStorage.setItem("simaq_grades", JSON.stringify([]));
+    localStorage.setItem("simaq_attendance", JSON.stringify([]));
+    localStorage.setItem("simaq_submissions", JSON.stringify([]));
+
+    // 2. Perform deletions on Supabase if configured
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase!.from("assignment_submissions").delete().neq("id", "placeholder-id-that-does-not-exist");
+        await supabase!.from("grades").delete().neq("id", "placeholder-id-that-does-not-exist");
+        await supabase!.from("attendance").delete().neq("id", "placeholder-id-that-does-not-exist");
+        await supabase!.from("students").delete().neq("id", "placeholder-id-that-does-not-exist");
+      } catch (err: any) {
+        const errMsg = err.message || String(err);
+        const fullError = `Gagal mengosongkan data siswa dari Supabase. Error: ${errMsg}`;
+        console.error(fullError, err);
+        db.notifyError(fullError);
+      }
+    }
   },
   saveStudent: (stud: Student) => {
     const studs = db.getStudents();
@@ -1167,6 +1203,98 @@ export const db = {
     }
   },
 
+  // --- TEACHING SCHEDULES (JADWAL MENGAJAR) ---
+  getSchedules: (): TeachingSchedule[] => {
+    return JSON.parse(localStorage.getItem("simaq_schedules") || "[]");
+  },
+  saveSchedule: (sch: TeachingSchedule) => {
+    const schedules = db.getSchedules();
+    const index = schedules.findIndex(s => s.id === sch.id);
+    if (index >= 0) schedules[index] = sch;
+    else schedules.push(sch);
+    localStorage.setItem("simaq_schedules", JSON.stringify(schedules));
+
+    if (isSupabaseConfigured()) {
+      handleSupabaseResult(
+        supabase!.from("teaching_schedules").upsert({
+          id: sch.id,
+          subject_id: sch.subject_id,
+          kelas_id: sch.kelas_id,
+          hari: sch.hari,
+          jam_mulai: sch.jam_mulai,
+          jam_selesai: sch.jam_selesai,
+          ruangan: sch.ruangan
+        }),
+        "Menyimpan jadwal mengajar"
+      );
+    }
+  },
+  deleteSchedule: async (id: string) => {
+    const schedules = db.getSchedules().filter(s => s.id !== id);
+    localStorage.setItem("simaq_schedules", JSON.stringify(schedules));
+
+    if (isSupabaseConfigured()) {
+      try {
+        const { error } = await supabase!.from("teaching_schedules").delete().eq("id", id);
+        if (error) throw error;
+      } catch (err: any) {
+        const errMsg = err.message || String(err);
+        const fullError = `Gagal menghapus jadwal mengajar dari Supabase. Error: ${errMsg}`;
+        console.error(fullError, err);
+        db.notifyError(fullError);
+      }
+    }
+  },
+  deleteAllSchedules: async () => {
+    localStorage.setItem("simaq_schedules", JSON.stringify([]));
+
+    if (isSupabaseConfigured()) {
+      try {
+        // Delete all rows by referencing a condition that is always true, or delete everything
+        const { error } = await supabase!.from("teaching_schedules").delete().neq("id", "placeholder-id-that-does-not-exist");
+        if (error) throw error;
+      } catch (err: any) {
+        const errMsg = err.message || String(err);
+        const fullError = `Gagal mengosongkan jadwal mengajar dari Supabase. Error: ${errMsg}`;
+        console.error(fullError, err);
+        db.notifyError(fullError);
+      }
+    }
+  },
+  deleteAllClasses: async () => {
+    // 1. Update / Clear LocalStorage
+    const studs = db.getStudents().map(s => ({ ...s, kelas_id: "" }));
+    localStorage.setItem("simaq_students", JSON.stringify(studs));
+    localStorage.setItem("simaq_grades", JSON.stringify([]));
+    localStorage.setItem("simaq_attendance", JSON.stringify([]));
+    localStorage.setItem("simaq_materials", JSON.stringify([]));
+    localStorage.setItem("simaq_assignments", JSON.stringify([]));
+    localStorage.setItem("simaq_submissions", JSON.stringify([]));
+    localStorage.setItem("simaq_journals", JSON.stringify([]));
+    localStorage.setItem("simaq_schedules", JSON.stringify([]));
+    localStorage.setItem("simaq_classes", JSON.stringify([]));
+
+    // 2. Perform deletions on Supabase if configured
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase!.from("teaching_schedules").delete().neq("id", "placeholder-id-that-does-not-exist");
+        await supabase!.from("assignment_submissions").delete().neq("id", "placeholder-id-that-does-not-exist");
+        await supabase!.from("assignments").delete().neq("id", "placeholder-id-that-does-not-exist");
+        await supabase!.from("grades").delete().neq("id", "placeholder-id-that-does-not-exist");
+        await supabase!.from("attendance").delete().neq("id", "placeholder-id-that-does-not-exist");
+        await supabase!.from("materials").delete().neq("id", "placeholder-id-that-does-not-exist");
+        await supabase!.from("teaching_journals").delete().neq("id", "placeholder-id-that-does-not-exist");
+        await supabase!.from("students").update({ kelas_id: null }).neq("id", "placeholder-id-that-does-not-exist");
+        await supabase!.from("classes").delete().neq("id", "placeholder-id-that-does-not-exist");
+      } catch (err: any) {
+        const errMsg = err.message || String(err);
+        const fullError = `Gagal mengosongkan data kelas dari Supabase. Error: ${errMsg}`;
+        console.error(fullError, err);
+        db.notifyError(fullError);
+      }
+    }
+  },
+
   // --- BIDIRECTIONAL SYNC ENGINE ---
   syncBidirectional: async (): Promise<{ success: boolean; pushed: string[]; pulled: string[]; error?: string }> => {
     if (!isSupabaseConfigured()) return { success: false, pushed: [], pulled: [] };
@@ -1220,6 +1348,19 @@ export const db = {
     ): Promise<any[]> => {
       // 1. Ambil data dari Supabase
       const { data: remote, error: fetchErr } = await supabase!.from(tableName).select("*");
+      if (fetchErr) {
+        const errMsg = fetchErr.message || String(fetchErr);
+        const isRelationError = 
+          (errMsg.toLowerCase().includes("relation") && errMsg.toLowerCase().includes("does not exist")) ||
+          (errMsg.toLowerCase().includes("could not find") && errMsg.toLowerCase().includes("schema cache"));
+        
+        if (isRelationError) {
+          const fullError = `Gagal sinkronisasi: Tabel "${label}" belum terdeteksi di database Supabase Anda. Silakan klik ikon database di navbar atas ("Bantuan Supabase"), salin Script SQL lengkap, lalu klik RUN di SQL Editor dashboard Supabase Anda!`;
+          db.notifyError(fullError);
+          const localRaw = localStorage.getItem(localKey);
+          return localRaw ? JSON.parse(localRaw) : [];
+        }
+      }
       checkSyncError(fetchErr, label);
 
       // 2. If we need to pull and overwrite entirely (first sync on device with existing data)
@@ -1256,6 +1397,11 @@ export const db = {
             itemToPush = sanitized;
           }
 
+          // Pastikan created_at diisi sebelum push ke Supabase untuk mencegah null value violation
+          if (!itemToPush.created_at) {
+            itemToPush.created_at = new Date().toISOString();
+          }
+
           // Bersihkan string kosong ("") menjadi null untuk menghindari kesalahan konversi tipe data PostgreSQL (seperti timestamp, date, numeric, dll)
           Object.keys(itemToPush).forEach((key) => {
             if (itemToPush[key] === "") {
@@ -1274,6 +1420,18 @@ export const db = {
       // 6. Upload data baru dari lokal ke Supabase
       if (toPush.length > 0) {
         const { error: upsertErr } = await supabase!.from(tableName).upsert(toPush);
+        if (upsertErr) {
+          const errMsg = upsertErr.message || String(upsertErr);
+          const isRelationError = 
+            (errMsg.toLowerCase().includes("relation") && errMsg.toLowerCase().includes("does not exist")) ||
+            (errMsg.toLowerCase().includes("could not find") && errMsg.toLowerCase().includes("schema cache"));
+          
+          if (isRelationError) {
+            const fullError = `Gagal push data: Tabel "${label}" belum terdeteksi di database Supabase Anda. Silakan klik ikon database di navbar atas ("Bantuan Supabase"), salin Script SQL lengkap, lalu klik RUN di SQL Editor dashboard Supabase Anda!`;
+            db.notifyError(fullError);
+            return merged;
+          }
+        }
         checkSyncError(upsertErr, `${label} (Push)`);
         pushed.push(label);
       }
@@ -1355,6 +1513,13 @@ export const db = {
         return jr;
       });
 
+      // 10. Jadwal Mengajar (Tergantung pada Mata Pelajaran, Kelas)
+      await syncTable("teaching_schedules", "simaq_schedules", "Jadwal Mengajar", (sch) => {
+        if (!sch.subject_id || !validSubjectIds.has(sch.subject_id)) return null;
+        if (!sch.kelas_id || !validClassIds.has(sch.kelas_id)) return null;
+        return sch;
+      });
+
       // Set the sync flag so future syncs are fully bidirectional
       localStorage.setItem("simaq_has_synced_supabase", "true");
       return { success: true, pushed, pulled };
@@ -1362,6 +1527,50 @@ export const db = {
       console.error("Error in bidirectional sync:", err);
       return { success: false, pushed, pulled, error: err.message };
     }
+  },
+
+  // --- SEMESTER CONTROL ---
+  getActiveSemester: (): "Ganjil" | "Genap" => {
+    if (typeof window === "undefined") return "Ganjil";
+    return (localStorage.getItem("simaq_active_semester") as "Ganjil" | "Genap") || "Ganjil";
+  },
+
+  setActiveSemester: (semester: "Ganjil" | "Genap") => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("simaq_active_semester", semester);
+  },
+
+  // --- FACTORY RESET ---
+  factoryReset: () => {
+    if (typeof window === "undefined") return;
+    
+    // Clear all simaq local storage items
+    const keysToRemove = [
+      "simaq_profile_guru",
+      "simaq_profile_siswa",
+      "simaq_subjects",
+      "simaq_classes",
+      "simaq_students",
+      "simaq_grades",
+      "simaq_attendance",
+      "simaq_materials",
+      "simaq_assignments",
+      "simaq_submissions",
+      "simaq_journals",
+      "simaq_schedules",
+      "simaq_student_passwords",
+      "simaq_guru_passwords",
+      "simaq_app_logo_emoji",
+      "simaq_app_logo_name",
+      "simaq_app_logo_sub",
+      "simaq_active_semester",
+      "simaq_current_user",
+      "simaq_has_synced_supabase"
+    ];
+
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    localStorage.setItem("simaq_active_semester", "Ganjil");
+    initLS();
   }
 };
 
@@ -1374,6 +1583,7 @@ export const SUPABASE_SQL_SCHEMA = `-- PostgreSQL SQL Schema for SIMAQ (Sistem I
 -- Using TEXT ids is fully compatible with custom local IDs.
 
 -- Clean up existing tables to prevent mismatching types
+DROP TABLE IF EXISTS public.teaching_schedules CASCADE;
 DROP TABLE IF EXISTS public.teaching_journals CASCADE;
 DROP TABLE IF EXISTS public.assignment_submissions CASCADE;
 DROP TABLE IF EXISTS public.assignments CASCADE;
@@ -1514,6 +1724,18 @@ CREATE TABLE public.teaching_journals (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 11. Create Teaching Schedules Table (Jadwal Mengajar)
+CREATE TABLE public.teaching_schedules (
+  id TEXT PRIMARY KEY,
+  subject_id TEXT REFERENCES public.subjects(id) ON DELETE CASCADE,
+  kelas_id TEXT REFERENCES public.classes(id) ON DELETE CASCADE,
+  hari TEXT NOT NULL,
+  jam_mulai TEXT NOT NULL,
+  jam_selesai TEXT NOT NULL,
+  ruangan TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- Set Row Level Security (RLS) to public/authenticated access as needed
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subjects ENABLE ROW LEVEL SECURITY;
@@ -1525,6 +1747,7 @@ ALTER TABLE public.materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.assignment_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teaching_journals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.teaching_schedules ENABLE ROW LEVEL SECURITY;
 
 -- Creating simple access policies (allow select, insert, update, delete for all)
 CREATE POLICY "Allow select for profiles" ON public.profiles FOR SELECT USING (true);
@@ -1576,4 +1799,9 @@ CREATE POLICY "Allow select for journals" ON public.teaching_journals FOR SELECT
 CREATE POLICY "Allow insert for journals" ON public.teaching_journals FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow update for journals" ON public.teaching_journals FOR UPDATE USING (true);
 CREATE POLICY "Allow delete for journals" ON public.teaching_journals FOR DELETE USING (true);
+
+CREATE POLICY "Allow select for schedules" ON public.teaching_schedules FOR SELECT USING (true);
+CREATE POLICY "Allow insert for schedules" ON public.teaching_schedules FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow update for schedules" ON public.teaching_schedules FOR UPDATE USING (true);
+CREATE POLICY "Allow delete for schedules" ON public.teaching_schedules FOR DELETE USING (true);
 `;
